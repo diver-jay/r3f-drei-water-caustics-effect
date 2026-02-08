@@ -1,5 +1,5 @@
-import { Canvas } from '@react-three/fiber'
-import Experience from './Experience'
+import { Canvas } from "@react-three/fiber";
+import Experience from "./experience";
 
 export default function App() {
   return (
@@ -8,10 +8,10 @@ export default function App() {
         fov: 45,
         near: 0.1,
         far: 200,
-        position: [3, 2, 6]
+        position: [3, 2, 6],
       }}
     >
       <Experience />
     </Canvas>
-  )
+  );
 }
