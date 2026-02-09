@@ -198,11 +198,15 @@ function CausticsTile() {
 
 ```
 src/
-├── App.tsx                # Main application entry
-├── experience.tsx         # Scene setup with Provider + consumer components
-├── water-caustics/        # Core Effect Module
-│   ├── index.tsx          # WaterCausticsProvider, useWaterCaustics, CausticsInteractionPlane
-│   ├── shaders.ts         # GLSL shaders (simulation + projected caustics)
+├── App.tsx                    # Main application entry
+├── experience.tsx             # Scene composition (imports + JSX layout)
+├── components/                # Consumer scene components
+│   ├── CausticsTile.tsx       # Tile plane with PBR textures + refraction
+│   ├── CausticsSphere.tsx     # Sphere with baseColor + projected caustics
+│   └── CausticsCube.tsx       # Cube with baseColor + projected caustics
+├── water-caustics/            # Core effect module (self-contained)
+│   ├── index.tsx              # WaterCausticsProvider, useWaterCaustics, CausticsInteractionPlane
+│   ├── shaders.ts             # GLSL shaders (simulation + projected caustics)
 │   └── use-water-simulation.ts  # Hook for GPU-based fluid simulation
 └── ...
 ```
