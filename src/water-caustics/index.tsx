@@ -1,143 +1,167 @@
-import { useRef, useCallback, useMemo } from "react";
-import { useFrame, useLoader, ThreeEvent } from "@react-three/fiber";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { useWaterSimulation } from "./use-water-simulation";
-import { causticsVertexShader, causticsFragmentShader } from "./shaders";
 
 /**
- * Props for the WaterCaustics component.
+ * Shared uniform references. Since these are `{ value }` objects,
+ * spreading them into consumer ShaderMaterials shares the same references.
+ * Provider mutates `.value` each frame → all consumers auto-update.
  */
-interface WaterCausticsProps {
-  /**
-   * The position of the water plane in 3D space.
-   * @default [0, 0, 0]
-   */
-  position?: [number, number, number];
-  /**
-   * The uniform scale factor for the water plane.
-   * A larger value makes the water plane bigger.
-   * @default 10
-   */
-  scale?: number;
-  /**
-   * Enables or disables interaction with the mouse/pointer to create ripples.
-   * When true, moving and clicking the mouse on the water surface will generate waves.
-   * @default true
-   */
-  enableMouseInteraction?: boolean;
-  /**
-   * Enables or disables automatic, random water drops over time.
-   * When true, the water surface will periodically generate small drops without user interaction.
-   * @default true
-   */
-  enableAutoDrops?: boolean;
-  /**
-   * Defines how many times the `tileColor`, `tileNormal`, and `tileRoughness` textures
-   * should repeat across the X and Y axes of the water plane.
-   * For example, `[4, 4]` means the textures will repeat 4 times horizontally and 4 times vertically.
-   * @default [1, 1]
-   */
-  tileRepeat?: [number, number];
+interface WaterCausticsUniforms {
+  waterTexture: { value: THREE.Texture | null };
+  waterPosition: { value: THREE.Vector3 };
+  waterSize: { value: number };
+  chromaticAberration: { value: number };
+  time: { value: number };
 }
 
-export default function WaterCaustics({
+interface WaterCausticsContextValue {
+  uniforms: WaterCausticsUniforms;
+  addDrop: (x: number, y: number, radius?: number, strength?: number) => void;
+}
+
+const WaterCausticsContext = createContext<WaterCausticsContextValue | null>(
+  null,
+);
+
+// ─── Hook ───────────────────────────────────────────────────────────
+
+export function useWaterCaustics(): WaterCausticsContextValue {
+  const ctx = useContext(WaterCausticsContext);
+  if (!ctx) {
+    throw new Error(
+      "useWaterCaustics must be used within <WaterCausticsProvider>",
+    );
+  }
+  return ctx;
+}
+
+// ─── Provider ───────────────────────────────────────────────────────
+
+interface WaterCausticsProviderProps {
+  children: ReactNode;
+  position?: [number, number, number];
+  size?: number;
+  enableAutoDrops?: boolean;
+  chromaticAberration?: number;
+}
+
+export function WaterCausticsProvider({
+  children,
   position = [0, 0, 0],
-  scale = 10,
-  enableMouseInteraction = true,
+  size = 10,
   enableAutoDrops = true,
-  tileRepeat = [1, 1],
-}: WaterCausticsProps) {
-  const meshRef = useRef();
-  const lastMouseDrop = useRef(0);
+  chromaticAberration = 0.005,
+}: WaterCausticsProviderProps) {
   const { getTexture, addDrop } = useWaterSimulation(256, enableAutoDrops);
 
-  // Load tile textures
-  const [tileColorTex, tileNormalTex, tileRoughnessTex] = useLoader(
-    THREE.TextureLoader,
-    ["/tiles_color.jpg", "/tiles_normal.jpg", "/tiles_roughness.jpg"],
+  // Create shared uniforms once. Consumers spread these into their materials.
+  const uniforms = useRef<WaterCausticsUniforms>({
+    waterTexture: { value: null },
+    waterPosition: { value: new THREE.Vector3(...position) },
+    waterSize: { value: size },
+    chromaticAberration: { value: chromaticAberration },
+    time: { value: 0 },
+  }).current;
+
+  // Sync prop changes to uniform values
+  useMemo(() => {
+    uniforms.waterPosition.value.set(position[0], position[1], position[2]);
+  }, [position, uniforms]);
+
+  useMemo(() => {
+    uniforms.waterSize.value = size;
+  }, [size, uniforms]);
+
+  useMemo(() => {
+    uniforms.chromaticAberration.value = chromaticAberration;
+  }, [chromaticAberration, uniforms]);
+
+  // Update per-frame uniforms
+  useFrame((state) => {
+    uniforms.waterTexture.value = getTexture();
+    uniforms.time.value = state.clock.elapsedTime;
+  });
+
+  const contextValue = useMemo(
+    () => ({ uniforms, addDrop }),
+    [uniforms, addDrop],
   );
 
-  // Configure texture wrapping for repeat
-  useMemo(() => {
-    [tileColorTex, tileNormalTex, tileRoughnessTex].forEach((tex) => {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    });
-  }, [tileColorTex, tileNormalTex, tileRoughnessTex]);
+  return (
+    <WaterCausticsContext.Provider value={contextValue}>
+      {children}
+    </WaterCausticsContext.Provider>
+  );
+}
 
-  // Create shader material
-  const shaderMaterial = useRef(
-    new THREE.ShaderMaterial({
-      uniforms: {
-        waterTexture: { value: null },
-        tileColor: { value: null },
-        tileNormal: { value: null },
-        tileRoughness: { value: null },
-        chromaticAberration: { value: 0.005 },
-        time: { value: 0 },
-        rotationAngle: { value: 0 },
-        tileRepeat: { value: new THREE.Vector2(tileRepeat[0], tileRepeat[1]) },
-      },
-      vertexShader: causticsVertexShader,
-      fragmentShader: causticsFragmentShader,
-      side: THREE.DoubleSide,
-    }),
-  ).current;
+// ─── Interaction Plane ──────────────────────────────────────────────
 
-  // Handle mouse/pointer move
+interface CausticsInteractionPlaneProps {
+  enableMouseInteraction?: boolean;
+}
+
+export function CausticsInteractionPlane({
+  enableMouseInteraction = true,
+}: CausticsInteractionPlaneProps) {
+  const { uniforms, addDrop } = useWaterCaustics();
+  const lastMouseDrop = useRef(0);
+
+  const position = uniforms.waterPosition.value;
+  const size = uniforms.waterSize.value;
+
+  // Convert world hit position to simulation coordinates (-1 to 1)
+  const worldToSim = useCallback(
+    (worldX: number, worldZ: number) => {
+      const x = ((worldX - position.x) / size) * 2;
+      const y = ((worldZ - position.z) / size) * 2;
+      return { x, y };
+    },
+    [position, size],
+  );
+
   const handlePointerMove = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
       if (!enableMouseInteraction) return;
 
       const now = performance.now();
-      // Throttle drops to every 50ms
       if (now - lastMouseDrop.current < 50) return;
       lastMouseDrop.current = now;
 
-      // Get UV coordinates from intersection
-      if (event.uv) {
-        // Convert UV (0-1) to simulation coordinates (-1 to 1)
-        const x = (event.uv.x - 0.5) * 2;
-        const y = (event.uv.y - 0.5) * 2;
-        addDrop(x, y, 0.02, 0.15);
-      }
+      const { x, y } = worldToSim(event.point.x, event.point.z);
+      addDrop(x, y, 0.02, 0.15);
     },
-    [enableMouseInteraction, addDrop],
+    [enableMouseInteraction, addDrop, worldToSim],
   );
 
-  // Handle click for bigger drops
   const handlePointerDown = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
       if (!enableMouseInteraction) return;
 
-      if (event.uv) {
-        const x = (event.uv.x - 0.5) * 2;
-        const y = (event.uv.y - 0.5) * 2;
-        addDrop(x, y, 0.04, 0.4);
-      }
+      const { x, y } = worldToSim(event.point.x, event.point.z);
+      addDrop(x, y, 0.04, 0.4);
     },
-    [enableMouseInteraction, addDrop],
+    [enableMouseInteraction, addDrop, worldToSim],
   );
-
-  useFrame((state) => {
-    // Update uniforms
-    shaderMaterial.uniforms.waterTexture.value = getTexture();
-    shaderMaterial.uniforms.tileColor.value = tileColorTex;
-    shaderMaterial.uniforms.tileNormal.value = tileNormalTex;
-    shaderMaterial.uniforms.tileRoughness.value = tileRoughnessTex;
-    shaderMaterial.uniforms.time.value = state.clock.elapsedTime;
-  });
 
   return (
     <mesh
-      ref={meshRef}
-      position={position}
+      position={[position.x, position.y, position.z]}
       rotation={[-Math.PI * 0.5, 0, 0]}
-      scale={scale}
+      scale={size}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
     >
       <planeGeometry args={[1, 1, 1, 1]} />
-      <primitive object={shaderMaterial} attach="material" />
+      <meshBasicMaterial visible={false} />
     </mesh>
   );
 }
