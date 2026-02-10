@@ -190,6 +190,111 @@ export const waterSurfaceVertexShader = `
   }
 `;
 
+// Pool caustics vertex shader - passes world position and world normal
+export const poolCausticsVertexShader = `
+  varying vec2 vUv;
+  varying vec3 vWorldPosition;
+  varying vec3 vWorldNormal;
+
+  void main() {
+    vUv = uv;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
+    vWorldNormal = normalize(mat3(modelMatrix) * normal);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+
+// Pool caustics fragment shader - box with top face discarded, camera-facing wall fade
+export const poolCausticsFragmentShader = `
+  uniform sampler2D waterTexture;
+  uniform vec3 waterPosition;
+  uniform float waterSize;
+  uniform float chromaticAberration;
+  uniform float time;
+
+  uniform sampler2D tileColor;
+  uniform sampler2D tileNormal;
+  uniform sampler2D tileRoughness;
+  uniform vec2 tileRepeat;
+  uniform float wallHeight;
+
+  varying vec2 vUv;
+  varying vec3 vWorldPosition;
+  varying vec3 vWorldNormal;
+
+  void main() {
+    vec3 normal = normalize(vWorldNormal);
+
+    // Discard top face
+    if (normal.y > 0.5) discard;
+
+    // Camera-based opacity for wall faces
+    float opacity = 1.0;
+    if (abs(normal.y) < 0.5) {
+      vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+      float facing = dot(viewDir, normal);
+      opacity = smoothstep(0.3, -0.1, facing);
+    }
+
+    // Project world XZ to water UV space
+    vec2 waterUV = (vWorldPosition.xz - waterPosition.xz) / waterSize + 0.5;
+
+    // Tile UVs with repeat
+    vec2 tileUv = vUv * tileRepeat;
+
+    // Sample tile textures
+    vec3 tileNorm = texture2D(tileNormal, tileUv).rgb * 2.0 - 1.0;
+    float roughness = texture2D(tileRoughness, tileUv).r;
+
+    // Subtle time-based distortion
+    vec2 distortedUv = waterUV + vec2(
+      sin(waterUV.y * 15.0 + time * 0.5) * 0.002,
+      cos(waterUV.x * 15.0 + time * 0.5) * 0.002
+    );
+
+    // Sample water simulation
+    vec4 waterData = texture2D(waterTexture, distortedUv);
+    float gx = waterData.b;
+    float gy = waterData.a;
+
+    // Caustic intensity from gradient magnitude
+    float gradient = length(vec2(gx, gy));
+    float caustic = smoothstep(0.0, 0.3, gradient);
+    caustic = pow(caustic, 0.5);
+
+    // Roughness affects caustic sharpness
+    caustic *= (1.0 - roughness * 0.5);
+
+    // Height-based attenuation for walls (stronger at bottom, weaker near surface)
+    if (abs(normal.y) < 0.5) {
+      float bottomY = waterPosition.y;
+      float topY = waterPosition.y + wallHeight;
+      float heightFactor = 1.0 - smoothstep(bottomY, topY, vWorldPosition.y);
+      caustic *= mix(0.3, 1.0, heightFactor);
+    }
+
+    // Chromatic aberration
+    float caR = texture2D(waterTexture, distortedUv + vec2(chromaticAberration, 0.0)).b;
+    float caB = texture2D(waterTexture, distortedUv - vec2(chromaticAberration, 0.0)).b;
+    vec3 aberration = vec3(
+      smoothstep(0.0, 0.4, abs(caR)) * 0.15,
+      0.0,
+      smoothstep(0.0, 0.4, abs(caB)) * 0.15
+    );
+
+    // Refraction distortion on tile texture
+    vec2 refractionOffset = vec2(gx, gy) * 0.02;
+    vec3 refractedColor = texture2D(tileColor, tileUv + refractionOffset).rgb;
+
+    // Blend refracted tile color with caustics
+    vec3 causticLight = vec3(0.8, 0.9, 1.0) * caustic * 0.6 + aberration;
+    vec3 finalColor = refractedColor + causticLight + vec3(caustic * 0.3);
+
+    gl_FragColor = vec4(finalColor, opacity);
+  }
+`;
+
 // Projected tile caustics fragment shader - for tile meshes with textures + refraction
 export const projectedTileCausticsFragmentShader = `
   uniform sampler2D waterTexture;
