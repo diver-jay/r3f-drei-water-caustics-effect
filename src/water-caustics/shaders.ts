@@ -229,12 +229,11 @@ export const poolCausticsFragmentShader = `
     // Discard top face
     if (normal.y > 0.5) discard;
 
-    // Camera-based opacity for wall faces
-    float opacity = 1.0;
+    // Discard camera-facing wall faces
     if (abs(normal.y) < 0.5) {
       vec3 viewDir = normalize(cameraPosition - vWorldPosition);
       float facing = dot(viewDir, normal);
-      opacity = smoothstep(0.3, -0.1, facing);
+      if (facing > 0.0) discard;
     }
 
     // Project world XZ to water UV space
@@ -291,7 +290,7 @@ export const poolCausticsFragmentShader = `
     vec3 causticLight = vec3(0.8, 0.9, 1.0) * caustic * 0.6 + aberration;
     vec3 finalColor = refractedColor + causticLight + vec3(caustic * 0.3);
 
-    gl_FragColor = vec4(finalColor, opacity);
+    gl_FragColor = vec4(finalColor, 1.0);
   }
 `;
 

@@ -47,8 +47,6 @@ export default function CausticsPool({
         vertexShader: poolCausticsVertexShader,
         fragmentShader: poolCausticsFragmentShader,
         side: THREE.DoubleSide,
-        transparent: true,
-        depthWrite: false,
       }),
     [
       uniforms,
