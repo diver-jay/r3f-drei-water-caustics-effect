@@ -153,6 +153,43 @@ export const projectedCausticsFragmentShader = `
   }
 `;
 
+// Water surface vertex shader for CustomShaderMaterial (CSM)
+// Displaces vertices using water simulation height and computes normals from neighbor samples
+export const waterSurfaceVertexShader = `
+  uniform sampler2D waterTexture;
+  uniform vec3 waterPosition;
+  uniform float waterSize;
+  uniform float heightScale;
+
+  void main() {
+    // Compute world position for water UV projection
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vec2 waterUV = (worldPos.xz - waterPosition.xz) / waterSize + 0.5;
+
+    // Sample center height
+    float height = texture2D(waterTexture, waterUV).r;
+    float restHeight = 0.4;
+
+    // Displace vertex along local Z (becomes world Y after -90deg X rotation)
+    csm_Position.z += (height - restHeight) * heightScale;
+
+    // Sample neighbor heights for normal calculation
+    float texel = 1.0 / 256.0;
+    float hL = texture2D(waterTexture, waterUV + vec2(-texel, 0.0)).r;
+    float hR = texture2D(waterTexture, waterUV + vec2( texel, 0.0)).r;
+    float hD = texture2D(waterTexture, waterUV + vec2(0.0, -texel)).r;
+    float hU = texture2D(waterTexture, waterUV + vec2(0.0,  texel)).r;
+
+    // Finite difference normal in local space (plane XY, displacement along Z)
+    float normalScale = heightScale / (2.0 * texel * waterSize);
+    csm_Normal = normalize(vec3(
+      -(hR - hL) * normalScale,
+      -(hU - hD) * normalScale,
+      1.0
+    ));
+  }
+`;
+
 // Projected tile caustics fragment shader - for tile meshes with textures + refraction
 export const projectedTileCausticsFragmentShader = `
   uniform sampler2D waterTexture;
