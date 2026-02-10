@@ -10,6 +10,7 @@ export default function Experience() {
       <Perf position="top-left" />
       <OrbitControls makeDefault />
       <ambientLight intensity={0.5} />
+      <spotLight position={[0, 10, 0]} intensity={2.5} angle={0.55} penumbra={0.2} decay={0} color="white" />
       <Environment preset="sunset" />
 
       <WaterCausticsProvider position={[0, 0, 0]} size={10} enableAutoDrops>
