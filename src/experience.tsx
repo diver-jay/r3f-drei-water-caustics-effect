@@ -1,9 +1,7 @@
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Environment } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import { WaterCausticsProvider } from "./water-caustics";
-import CausticsTile from "./components/CausticsTile";
-import CausticsSphere from "./components/CausticsSphere";
-import CausticsCube from "./components/CausticsCube";
+import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
 
 export default function Experience() {
@@ -12,12 +10,11 @@ export default function Experience() {
       <Perf position="top-left" />
       <OrbitControls makeDefault />
       <ambientLight intensity={0.5} />
+      <Environment preset="sunset" />
 
       <WaterCausticsProvider position={[0, 0, 0]} size={10} enableAutoDrops>
         <WaterSurface position={[0, 5, 0]} />
-        <CausticsTile position={[0, 0, 0]} scale={10} tileRepeat={[1, 1]} />
-        <CausticsSphere position={[-2, 1, 0]} radius={0.8} color="#ff6b6b" />
-        <CausticsCube position={[2, 0.75, 0]} size={1.5} color="#4ecdc4" />
+        <CausticsPool position={[0, 0, 0]} size={10} wallHeight={5} tileRepeat={[1, 1]} />
       </WaterCausticsProvider>
     </>
   );
