@@ -21,6 +21,9 @@ interface WaterCausticsUniforms {
   waterSize: { value: number };
   chromaticAberration: { value: number };
   time: { value: number };
+  waterSurfaceY: { value: number };
+  depthColor: { value: THREE.Color };
+  depthDistance: { value: number };
 }
 
 interface WaterCausticsContextValue {
@@ -52,6 +55,9 @@ interface WaterCausticsProviderProps {
   size?: number;
   enableAutoDrops?: boolean;
   chromaticAberration?: number;
+  waterSurfaceY?: number;
+  depthColor?: string;
+  depthDistance?: number;
 }
 
 export function WaterCausticsProvider({
@@ -60,6 +66,9 @@ export function WaterCausticsProvider({
   size = 10,
   enableAutoDrops = true,
   chromaticAberration = 0.005,
+  waterSurfaceY = 5,
+  depthColor = "#006bbe",
+  depthDistance = 5,
 }: WaterCausticsProviderProps) {
   const { getTexture, addDrop } = useWaterSimulation(256, enableAutoDrops);
 
@@ -70,6 +79,9 @@ export function WaterCausticsProvider({
     waterSize: { value: size },
     chromaticAberration: { value: chromaticAberration },
     time: { value: 0 },
+    waterSurfaceY: { value: waterSurfaceY },
+    depthColor: { value: new THREE.Color(depthColor) },
+    depthDistance: { value: depthDistance },
   }).current;
 
   // Sync prop changes to uniform values

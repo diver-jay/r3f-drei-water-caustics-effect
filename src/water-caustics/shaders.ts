@@ -360,3 +360,52 @@ export const projectedTileCausticsFragmentShader = `
     gl_FragColor = vec4(finalColor, 1.0);
   }
 `;
+
+// Bubble vertex shader - passes normal and view position for Fresnel
+export const bubbleVertexShader = `
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+// Bubble fragment shader - Fresnel rim highlight with transparency
+export const bubbleFragmentShader = `
+  uniform float time;
+
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+
+  void main() {
+    vec3 viewDir = normalize(vViewPosition);
+    vec3 normal = normalize(vNormal);
+
+    // Fresnel - bright rim at grazing angles
+    float fresnel = pow(1.0 - abs(dot(viewDir, normal)), 2.5);
+
+    // Specular highlight from light above
+    vec3 lightDir = normalize(vec3(0.0, 1.0, 0.0));
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+
+    // Subtle iridescence from view angle
+    float iAngle = dot(viewDir, normal);
+    vec3 iridescence = vec3(
+      sin(iAngle * 6.28 + time) * 0.5 + 0.5,
+      sin(iAngle * 6.28 + time + 2.094) * 0.5 + 0.5,
+      sin(iAngle * 6.28 + time + 4.189) * 0.5 + 0.5
+    ) * 0.08;
+
+    vec3 rimColor = vec3(0.7, 0.85, 1.0);
+    vec3 finalColor = rimColor * fresnel + iridescence + vec3(1.0) * spec;
+    float alpha = fresnel * 0.4 + spec * 0.5;
+    alpha = clamp(alpha, 0.03, 0.75);
+
+    gl_FragColor = vec4(finalColor, alpha);
+  }
+`;
