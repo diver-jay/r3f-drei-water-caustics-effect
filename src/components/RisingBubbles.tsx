@@ -3,6 +3,12 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useWaterCaustics } from "../water-caustics";
 
+const BUBBLE_COLORS = [
+  new THREE.Color("#ff6b6b"), // Red
+  new THREE.Color("#ffd93d"), // Yellow
+  new THREE.Color("#6bcb77"), // Green
+];
+
 interface BubbleData {
   id: number;
   spawnX: number;
@@ -12,6 +18,7 @@ interface BubbleData {
   wobblePhase: number;
   wobbleFrequency: number;
   wobbleAmplitude: number;
+  color: THREE.Color;
 }
 
 // ─── Individual Bubble ─────────────────────────────────────────────
@@ -25,6 +32,7 @@ function Bubble({
   wobblePhase,
   wobbleFrequency,
   wobbleAmplitude,
+  color,
   onBurst,
 }: BubbleData & {
   onBurst: (id: number, x: number, z: number, size: number) => void;
@@ -49,12 +57,12 @@ function Bubble({
         dispersion: 0.15,
         specularIntensity: 3,
         specularColor: new THREE.Color(0xffffff),
-        color: new THREE.Color(0xffffff),
+        color: color,
         envMapIntensity: 1.0,
         side: THREE.DoubleSide,
         transparent: true,
       }),
-    [],
+    [color],
   );
 
   useFrame((state, delta) => {
@@ -162,6 +170,7 @@ export default function RisingBubbles({
           wobblePhase: Math.random() * Math.PI * 2,
           wobbleFrequency: 2 + Math.random() * 2,
           wobbleAmplitude: wobbleStrength * (0.5 + Math.random() * 0.5),
+          color: BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)],
         });
       }
 
