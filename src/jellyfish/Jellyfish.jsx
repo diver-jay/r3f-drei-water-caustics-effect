@@ -786,16 +786,24 @@ export default function Jellyfish({
   const swimPosRef = useRef(initialPosition.clone());
   const swimVelRef = useRef(new THREE.Vector3());
   const wanderAngleRef = useRef(initialAngle);
-  const wanderPitchRef = useRef(0);
+  // 각 인스턴스마다 다른 초기 pitch (위/옆/아래 다양하게)
+  const _initPitch = (Math.random() - 0.5) * PI * 0.8; // ±72°
+  const wanderPitchRef = useRef(_initPitch);
   const wanderTargetAngleRef = useRef(
     initialAngle + (Math.random() - 0.5) * 1.2,
   );
-  const wanderTargetPitchRef = useRef((Math.random() - 0.5) * 0.3);
+  const wanderTargetPitchRef = useRef(
+    _initPitch + (Math.random() - 0.5) * 0.8,
+  );
   const wanderTimerRef = useRef(2 + Math.random() * 3);
 
   // Bell top faces this direction (model +Y → swimDir)
   const swimDirRef = useRef(
-    new THREE.Vector3(cos(initialAngle), 0, sin(initialAngle)),
+    new THREE.Vector3(
+      cos(_initPitch) * cos(initialAngle),
+      sin(_initPitch),
+      cos(_initPitch) * sin(initialAngle),
+    ),
   );
 
   // Reusable objects — no allocation in useFrame
@@ -927,7 +935,8 @@ export default function Jellyfish({
       if (wanderTimerRef.current <= 0) {
         wanderTargetAngleRef.current =
           wanderAngleRef.current + (Math.random() - 0.5) * PI * 1.2;
-        wanderTargetPitchRef.current = (Math.random() - 0.5) * 0.5;
+        wanderTargetPitchRef.current =
+          wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7;
         wanderTimerRef.current =
           WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
       }
