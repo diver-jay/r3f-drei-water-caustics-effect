@@ -3,7 +3,7 @@ import { Perf } from "r3f-perf";
 import { WaterCausticsProvider } from "./water-caustics";
 import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
-import RisingBubbles from "./components/RisingBubbles";
+import SwimmingJellyfish from "./components/SwimmingJellyfish";
 
 export default function Experience() {
   return (
@@ -33,7 +33,7 @@ export default function Experience() {
           wallHeight={5}
           tileRepeat={[1, 1]}
         />
-        <RisingBubbles />
+        <SwimmingJellyfish />
       </WaterCausticsProvider>
     </>
   );
