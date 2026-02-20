@@ -776,7 +776,7 @@ export default function Jellyfish({
   initialPosition = new THREE.Vector3(0, 1.5, 0),
   onSurfaceReach = () => {},
 }) {
-  const animTimeRef = useRef(0);
+  const animTimeRef = useRef(Math.random() * 2.5); // PERIOD=2.5, 각 인스턴스 랜덤 위상
   const groupRef = useRef();
   const prevPhaseRef = useRef(0);
   const isHoveredRef = useRef(false);
