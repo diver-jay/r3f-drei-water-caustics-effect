@@ -1,22 +1,61 @@
 import * as THREE from "three";
-import { useCallback } from "react";
 import { useWaterCaustics } from "../water-caustics";
 import Jellyfish from "../jellyfish/Jellyfish";
 
-// ─── Jellyfish page mapping ────────────────────────────────────────────────────
+// ─── Jellyfish instances ───────────────────────────────────────────────────────
 const JELLIES = [
+  // ── 흰/투명 5마리 ──────────────────────────────────────────────────────────
+  {
+    name: "J1",
+    color: new THREE.Color("#d0e8ff"),
+    diffuseB: new THREE.Color("#a0c4ee"),
+    faintColor: new THREE.Color("#cce4ff"),
+    initialAngle: 0.0,
+    initialPosition: new THREE.Vector3(1.5, 1.4, 0.3),
+  },
+  {
+    name: "J2",
+    color: new THREE.Color("#e8f2ff"),
+    diffuseB: new THREE.Color("#b0cce8"),
+    faintColor: new THREE.Color("#ddeeff"),
+    initialAngle: 1.3,
+    initialPosition: new THREE.Vector3(-1.2, 1.9, -0.8),
+  },
+  {
+    name: "J3",
+    color: new THREE.Color("#c8e0f8"),
+    diffuseB: new THREE.Color("#90b8e0"),
+    faintColor: new THREE.Color("#c0d8f8"),
+    initialAngle: 2.6,
+    initialPosition: new THREE.Vector3(0.2, 1.2, 1.8),
+  },
+  {
+    name: "J4",
+    color: new THREE.Color("#dceeff"),
+    diffuseB: new THREE.Color("#a8c8e8"),
+    faintColor: new THREE.Color("#d0e8ff"),
+    initialAngle: 4.0,
+    initialPosition: new THREE.Vector3(-0.8, 2.1, 0.6),
+  },
+  {
+    name: "J5",
+    color: new THREE.Color("#e4f0ff"),
+    diffuseB: new THREE.Color("#b8d4f0"),
+    faintColor: new THREE.Color("#d8ecff"),
+    initialAngle: 5.2,
+    initialPosition: new THREE.Vector3(1.0, 1.6, -1.4),
+  },
+  // ── 빨/노/초 3마리 ─────────────────────────────────────────────────────────
   {
     name: "Coral",
-    route: "/now",
     color: new THREE.Color("#ff6b6b"),
     diffuseB: new THREE.Color("#7a1a1a"),
     faintColor: new THREE.Color("#ff4444"),
-    initialAngle: 0,
+    initialAngle: 0.7,
     initialPosition: new THREE.Vector3(1.5, 1.5, 0.5),
   },
   {
     name: "Gold",
-    route: "/uses",
     color: new THREE.Color("#ffd93d"),
     diffuseB: new THREE.Color("#8b6b00"),
     faintColor: new THREE.Color("#ffcc00"),
@@ -25,11 +64,10 @@ const JELLIES = [
   },
   {
     name: "Emerald",
-    route: "/playground",
     color: new THREE.Color("#6bcb77"),
     diffuseB: new THREE.Color("#1a5c25"),
     faintColor: new THREE.Color("#44bb55"),
-    initialAngle: 4.2,
+    initialAngle: 3.8,
     initialPosition: new THREE.Vector3(-0.5, 1.2, 1.5),
   },
 ];
@@ -40,23 +78,11 @@ export default function SwimmingJellyfish() {
   const waterPosition = uniforms.waterPosition.value as any;
   const waterSize = uniforms.waterSize.value as number;
 
-  const worldToSim = useCallback(
-    (worldX: number, worldZ: number) => {
-      const x = ((worldX - waterPosition.x) / waterSize) * 2;
-      const y = ((worldZ - waterPosition.z) / waterSize) * 2;
-      return { x, y };
-    },
-    [waterPosition, waterSize],
-  );
-
-  const handleSurfaceReach = useCallback(
-    (position: THREE.Vector3, route: string, name: string) => {
-      const { x, y } = worldToSim(position.x, position.z);
-      addDrop(x, y, 0.06, 0.5);
-      console.log(`🪼 Navigate to: ${route} (${name})`);
-    },
-    [addDrop, worldToSim],
-  );
+  function handleSurfaceReach(pos: THREE.Vector3) {
+    const x = ((pos.x - waterPosition.x) / waterSize) * 2;
+    const y = ((pos.z - waterPosition.z) / waterSize) * 2;
+    addDrop(x, y, 0.06, 0.5);
+  }
 
   return (
     <>
@@ -68,9 +94,7 @@ export default function SwimmingJellyfish() {
           faintColor={jelly.faintColor}
           initialAngle={jelly.initialAngle}
           initialPosition={jelly.initialPosition}
-          onSurfaceReach={(pos: THREE.Vector3) =>
-            handleSurfaceReach(pos, jelly.route, jelly.name)
-          }
+          onSurfaceReach={handleSurfaceReach}
         />
       ))}
     </>
