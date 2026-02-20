@@ -14,7 +14,7 @@ const push = Array.prototype.push;
 
 // ─── Swimming constants ────────────────────────────────────────────────────────
 const THRUST_FACTOR = 1.2; // velocity impulse per unit of phase contraction
-const DRAG = 0.97; // per-frame velocity decay (at 60fps baseline)
+// drag: asymmetric (수축 중 0.85/s 유지, 팽창 중 0.40/s 빠른 감속)
 const GRAVITY = 0.06; // downward drift (units/s)
 const TURN_SPEED = 0.7; // angular interpolation speed (rad/s)
 const WANDER_MIN = 3.5; // seconds between direction changes (min)
@@ -886,22 +886,36 @@ export default function Jellyfish({
     // 탭 전환 후 복귀 시 delta가 수 초짜리로 점프하는 것을 방지
     const clampedDelta = Math.min(delta, 1 / 30);
     const t = (animTimeRef.current += clampedDelta);
-    const phase = (sin(t * PI - PI * 0.5) + 1) * 0.5; // 0→1→0 cycle
+    // 비대칭 펄스: 팽창(0→1) 느리게 75%, 수축(1→0) 빠르게 25%
+    const PERIOD = 2.5;
+    const EXPAND_RATIO = 0.75;
+    const cycleT = (t % PERIOD) / PERIOD;
+    let phase;
+    if (cycleT < EXPAND_RATIO) {
+      phase = (sin((cycleT / EXPAND_RATIO) * PI - PI * 0.5) + 1) * 0.5;
+    } else {
+      phase =
+        1 -
+        (sin(((cycleT - EXPAND_RATIO) / (1 - EXPAND_RATIO)) * PI - PI * 0.5) +
+          1) *
+          0.5;
+    }
 
     // ── 펄스 연동 이동 ──────────────────────────────────────────────
     // phase 감소 = bell 수축 = 추진 임펄스 / phase 증가 = bell 확장 = 감속
     const phaseDelta = phase - prevPhaseRef.current;
     prevPhaseRef.current = phase;
 
-    if (phaseDelta < 0) {
-      // 수축 구간: swimDir 방향으로 속도 임펄스
+    const isContracting = phaseDelta < 0;
+    if (isContracting) {
+      // 수축 구간: swimDir 방향으로 강한 순간 임펄스
       const impulse = Math.abs(phaseDelta) * THRUST_FACTOR;
       swimVelRef.current.addScaledVector(swimDirRef.current, impulse);
     }
 
-    // ── 수중 저항(drag) ─────────────────────────────────────────────
-    const dragFactor = Math.pow(DRAG, clampedDelta * 60);
-    swimVelRef.current.multiplyScalar(dragFactor);
+    // ── 비대칭 drag: 수축 중 저항 적음(추진 유지) / 팽창 중 저항 큼(빠른 감속)
+    const dragPerSec = isContracting ? 0.85 : 0.4;
+    swimVelRef.current.multiplyScalar(Math.pow(dragPerSec, clampedDelta));
 
     // ── 방향 및 중력/부력 ───────────────────────────────────────────
     if (!isSurfacingRef.current) {
@@ -966,7 +980,10 @@ export default function Jellyfish({
       _upVecRef.current,
       swimDirRef.current,
     );
-    group.quaternion.slerp(_targetQuatRef.current, 1 - Math.exp(-3 * clampedDelta));
+    group.quaternion.slerp(
+      _targetQuatRef.current,
+      1 - Math.exp(-3 * clampedDelta),
+    );
 
     // ── 수면 도달 감지 ──────────────────────────────────────────────
     if (isSurfacingRef.current && pos.y >= SURFACE_Y) {
