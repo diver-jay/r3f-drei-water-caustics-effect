@@ -13,8 +13,7 @@ const PI_HALF = PI * 0.5;
 const push = Array.prototype.push;
 
 // ─── Swimming constants ────────────────────────────────────────────────────────
-const THRUST_FACTOR = 1.2; // velocity impulse per unit of phase contraction
-// drag: asymmetric (수축 중 0.85/s 유지, 팽창 중 0.40/s 빠른 감속)
+const THRUST_FACTOR = 2.0; // velocity impulse per unit of phase contraction
 const GRAVITY = 0.06; // downward drift (units/s)
 const TURN_SPEED = 0.7; // angular interpolation speed (rad/s)
 const WANDER_MIN = 3.5; // seconds between direction changes (min)
@@ -772,6 +771,9 @@ export default function Jellyfish({
   color = new THREE.Color(0xff6b6b),
   diffuseB: diffuseBProp = new THREE.Color(0x7a1a1a),
   faintColor = new THREE.Color(0xff4444),
+  hoverColor = new THREE.Color(0xffb3b3),
+  hoverDiffuseB = new THREE.Color(0xc45050),
+  hoverFaintColor = new THREE.Color(0xff8888),
   initialAngle = 0,
   initialPosition = new THREE.Vector3(0, 1.5, 0),
   onSurfaceReach = () => {},
@@ -816,6 +818,9 @@ export default function Jellyfish({
   const tentMatRef = useRef();
   const mouthMatRef = useRef();
   const innerMatRef = useRef();
+
+  // Hover color contrast animation
+  const hoverLerpRef = useRef(0);
 
   const {
     system,
@@ -932,10 +937,22 @@ export default function Jellyfish({
       // Wandering: 랜덤 방향 변경
       wanderTimerRef.current -= clampedDelta;
       if (wanderTimerRef.current <= 0) {
+        // 누적 방지: 새 목표 설정 전 현재값 정규화
+        wanderAngleRef.current = wanderAngleRef.current % (PI * 2);
+        wanderPitchRef.current = Math.max(
+          -PI * 0.45,
+          Math.min(PI * 0.45, wanderPitchRef.current),
+        );
+
         wanderTargetAngleRef.current =
           wanderAngleRef.current + (Math.random() - 0.5) * PI * 1.2;
-        wanderTargetPitchRef.current =
-          wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7;
+        wanderTargetPitchRef.current = Math.max(
+          -PI * 0.45,
+          Math.min(
+            PI * 0.45,
+            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7,
+          ),
+        );
         wanderTimerRef.current =
           WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
       }
@@ -1058,6 +1075,32 @@ export default function Jellyfish({
     if (tentMatRef.current) tentMatRef.current.stepProgress = phase;
     if (mouthMatRef.current) mouthMatRef.current.stepProgress = phase;
     if (innerMatRef.current) innerMatRef.current.stepProgress = phase;
+
+    // Hover: 모든 색상을 hover 색상으로 부드럽게 전환
+    const targetLerp = isHoveredRef.current ? 1 : 0;
+    hoverLerpRef.current += (targetLerp - hoverLerpRef.current) * 5 * delta;
+    const h = hoverLerpRef.current;
+    if (bulbMatRef.current) {
+      bulbMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+      bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseB, h);
+    }
+    if (tailMatRef.current) {
+      tailMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
+      tailMatRef.current.diffuseB.lerpColors(color, hoverColor, h);
+    }
+    if (hoodMatRef.current) {
+      hoodMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+    }
+    if (tentMatRef.current) {
+      tentMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
+    }
+    if (mouthMatRef.current) {
+      mouthMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
+      mouthMatRef.current.diffuseB.lerpColors(color, hoverColor, h);
+    }
+    if (innerMatRef.current) {
+      innerMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+    }
   });
 
   const handleClick = useCallback((e) => {
@@ -1176,7 +1219,7 @@ export default function Jellyfish({
         onPointerLeave={handlePointerLeave}
         visible={false}
       >
-        <sphereGeometry args={[18, 8, 8]} />
+        <sphereGeometry args={[45, 8, 8]} />
         <meshBasicMaterial />
       </mesh>
     </group>
