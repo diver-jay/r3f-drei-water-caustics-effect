@@ -821,6 +821,8 @@ export default function Jellyfish({
 
   // Hover color contrast animation
   const hoverLerpRef = useRef(0);
+  // Hit squish: 1.0 on click, decays to 0
+  const hitRef = useRef(0);
 
   const {
     system,
@@ -912,6 +914,10 @@ export default function Jellyfish({
           1) *
           0.5;
     }
+
+    // Hit squish: 빠르게 decay해 bell 찌그러짐 복원
+    hitRef.current *= Math.pow(0.003, clampedDelta);
+    const displayPhase = Math.max(0, phase - hitRef.current);
 
     // ── 펄스 연동 이동 ──────────────────────────────────────────────
     // phase 감소 = bell 수축 = 추진 임펄스 / phase 증가 = bell 확장 = 감속
@@ -1025,8 +1031,8 @@ export default function Jellyfish({
 
     // ── Physics ─────────────────────────────────────────────────────
     gravityForce.set(0, -2 - phase * 3 - Math.max(0, vel.y) * 1.5, 0);
-    updateRibs(ribs, phase, totalSegments);
-    updateRibs(tailRibs, phase, totalSegments);
+    updateRibs(ribs, displayPhase, totalSegments);
+    updateRibs(tailRibs, displayPhase, totalSegments);
 
     // ── 촉수 드래그: tick을 분리해 accumulatedForces에 직접 주입 ─────
     const tentStart = tentacles[0][0].start;
@@ -1060,21 +1066,21 @@ export default function Jellyfish({
 
     // ── Shader uniforms ──────────────────────────────────────────────
     if (bulbMatRef.current) {
-      bulbMatRef.current.stepProgress = phase;
+      bulbMatRef.current.stepProgress = displayPhase;
       bulbMatRef.current.time = t;
     }
     if (faintMatRef.current) {
-      faintMatRef.current.stepProgress = phase;
+      faintMatRef.current.stepProgress = displayPhase;
       // Bioluminescence: hover 시 opacity 부드럽게 증가
       const targetOpacity = isHoveredRef.current ? 0.4 : 0.05;
       faintMatRef.current.opacity +=
         (targetOpacity - faintMatRef.current.opacity) * 5 * delta;
     }
-    if (tailMatRef.current) tailMatRef.current.stepProgress = phase;
-    if (hoodMatRef.current) hoodMatRef.current.stepProgress = phase;
-    if (tentMatRef.current) tentMatRef.current.stepProgress = phase;
-    if (mouthMatRef.current) mouthMatRef.current.stepProgress = phase;
-    if (innerMatRef.current) innerMatRef.current.stepProgress = phase;
+    if (tailMatRef.current) tailMatRef.current.stepProgress = displayPhase;
+    if (hoodMatRef.current) hoodMatRef.current.stepProgress = displayPhase;
+    if (tentMatRef.current) tentMatRef.current.stepProgress = displayPhase;
+    if (mouthMatRef.current) mouthMatRef.current.stepProgress = displayPhase;
+    if (innerMatRef.current) innerMatRef.current.stepProgress = displayPhase;
 
     // Hover: 모든 색상을 hover 색상으로 부드럽게 전환
     const targetLerp = isHoveredRef.current ? 1 : 0;
@@ -1105,10 +1111,11 @@ export default function Jellyfish({
 
   const handleClick = useCallback((e) => {
     e.stopPropagation();
-    if (!isSurfacingRef.current) {
-      isSurfacingRef.current = true;
-      swimVelRef.current.set(0, 1.0, 0); // 수직 상승 시작
-    }
+    const pushDir = new THREE.Vector3()
+      .subVectors(swimPosRef.current, e.point)
+      .normalize();
+    swimVelRef.current.addScaledVector(pushDir, 1.0);
+    hitRef.current = 4.0;
   }, []);
 
   const handlePointerEnter = useCallback(() => {
