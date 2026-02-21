@@ -1,15 +1,16 @@
-import { OrbitControls, Environment } from "@react-three/drei";
+import { Environment } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import { WaterCausticsProvider } from "./water-caustics";
 import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
 import SwimmingJellyfish from "./components/SwimmingJellyfish";
+import CameraController from "./components/CameraController";
 
 export default function Experience() {
   return (
     <>
       <Perf position="top-left" />
-      <OrbitControls makeDefault />
+      <CameraController />
       <ambientLight intensity={0.5} />
       <spotLight
         position={[6.67, 10, -3.33]}
