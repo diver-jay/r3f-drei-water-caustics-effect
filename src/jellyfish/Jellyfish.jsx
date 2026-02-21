@@ -808,7 +808,9 @@ export default function Jellyfish({
 
   // Reusable objects — no allocation in useFrame
   const _targetQuatRef = useRef(new THREE.Quaternion());
-  const _upVecRef = useRef(new THREE.Vector3(0, 1, 0));
+  const _rightVecRef = useRef(new THREE.Vector3(1, 0, 0));
+  const _forwardVecRef = useRef(new THREE.Vector3(0, 0, 1));
+  const _matrixRef = useRef(new THREE.Matrix4());
 
   // Material refs
   const bulbMatRef = useRef();
@@ -1006,11 +1008,28 @@ export default function Jellyfish({
 
     group.position.copy(pos);
 
-    // Bell top (model +Y) → swimDir 방향으로 회전
-    _targetQuatRef.current.setFromUnitVectors(
-      _upVecRef.current,
+    // Bell top (model +Y) → swimDir 방향으로 회전 (Roll 비틀림 방지 기저 벡터 계산)
+    const dirX = swimDirRef.current.x;
+    const dirZ = swimDirRef.current.z;
+    const len = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+    if (len > 0.0001) {
+      // 수평 Right 벡터 도출 (Up x swimDir)
+      _rightVecRef.current.set(dirZ / len, 0, -dirX / len);
+    }
+    // Right(X)축과 swimDir(Y축)의 외적으로 Forward(Z)축 계산
+    _forwardVecRef.current
+      .crossVectors(_rightVecRef.current, swimDirRef.current)
+      .normalize();
+
+    // 3개의 직교 축을 기반으로 매트릭스를 만들고 쿼터니언으로 변환
+    _matrixRef.current.makeBasis(
+      _rightVecRef.current,
       swimDirRef.current,
+      _forwardVecRef.current,
     );
+    _targetQuatRef.current.setFromRotationMatrix(_matrixRef.current);
+
     group.quaternion.slerp(
       _targetQuatRef.current,
       1 - Math.exp(-3 * clampedDelta),
@@ -1114,7 +1133,7 @@ export default function Jellyfish({
     const pushDir = new THREE.Vector3()
       .subVectors(swimPosRef.current, e.point)
       .normalize();
-    swimVelRef.current.addScaledVector(pushDir, 1.0);
+    swimVelRef.current.addScaledVector(pushDir, 4.0);
     hitRef.current = 4.0;
   }, []);
 
@@ -1205,18 +1224,6 @@ export default function Jellyfish({
           side={THREE.DoubleSide}
         />
       </mesh>
-
-      {/* Inner wireframe */}
-      <lineSegments geometry={innerLinksGeo}>
-        <lerpShaderMaterial
-          ref={innerMatRef}
-          diffuse={color}
-          opacity={0.15}
-          transparent
-          depthTest={false}
-          depthWrite={false}
-        />
-      </lineSegments>
 
       {/* Invisible hit sphere (bell center: physics Y=40 → local Y=2 at scale 0.05) */}
       <mesh
