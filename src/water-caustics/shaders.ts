@@ -212,6 +212,9 @@ export const poolCausticsFragmentShader = `
   uniform float waterSize;
   uniform float chromaticAberration;
   uniform float time;
+  uniform float waterSurfaceY;
+  uniform vec3 depthColor;
+  uniform vec3 lightDir;
 
   uniform sampler2D tileColor;
   uniform sampler2D tileNormal;
@@ -236,15 +239,29 @@ export const poolCausticsFragmentShader = `
       if (facing > 0.0) discard;
     }
 
-    // Project world XZ to water UV space
-    vec2 waterUV = (vWorldPosition.xz - waterPosition.xz) / waterSize + 0.5;
-
     // Tile UVs with repeat
     vec2 tileUv = vUv * tileRepeat;
-
-    // Sample tile textures
-    vec3 tileNorm = texture2D(tileNormal, tileUv).rgb * 2.0 - 1.0;
     float roughness = texture2D(tileRoughness, tileUv).r;
+
+    // Refracted light direction through water surface (IOR_WATER = 1.333)
+    // lightDir: FROM scene TOWARD light (positive Y = above)
+    // Reference: madebyevan.com/webgl-water renderer.js
+    //   refractedLight = -refract(-light, vec3(0,1,0), IOR_AIR/IOR_WATER)
+    // Result points upward (from underwater fragment back toward water surface)
+    vec3 refractedDir = -refract(-lightDir, vec3(0.0, 1.0, 0.0), 1.0 / 1.333);
+
+    // Diffuse lighting using the INTERIOR-facing normal.
+    // Box geometry normals point OUTWARD, but we render the pool interior,
+    // so the face that receives light faces INWARD = -normal.
+    // e.g. floor outward normal = (0,-1,0), interior = (0,+1,0) → gets light from above.
+    float diffuse = max(0.0, dot(refractedDir, -normal));
+
+    // Sample water directly above this fragment (direct XZ projection).
+    // The reference projects along the refracted light ray, but that formula is designed
+    // for a pre-computed ray-traced caustic texture and overshoots the UV bounds on our
+    // larger pool, leaving edges/corners with no caustic.
+    // Directionality is already handled by the diffuse term above.
+    vec2 waterUV = (vWorldPosition.xz - waterPosition.xz) / waterSize + 0.5;
 
     // Subtle time-based distortion
     vec2 distortedUv = waterUV + vec2(
@@ -261,8 +278,6 @@ export const poolCausticsFragmentShader = `
     float gradient = length(vec2(gx, gy));
     float caustic = smoothstep(0.0, 0.3, gradient);
     caustic = pow(caustic, 0.5);
-
-    // Roughness affects caustic sharpness
     caustic *= (1.0 - roughness * 0.5);
 
     // Height-based attenuation for walls (stronger at bottom, weaker near surface)
@@ -282,13 +297,24 @@ export const poolCausticsFragmentShader = `
       smoothstep(0.0, 0.4, abs(caB)) * 0.15
     );
 
-    // Refraction distortion on tile texture
+    // Tile color with refraction distortion
     vec2 refractionOffset = vec2(gx, gy) * 0.02;
-    vec3 refractedColor = texture2D(tileColor, tileUv + refractionOffset).rgb;
+    vec3 tileCol = texture2D(tileColor, tileUv + refractionOffset).rgb;
 
-    // Blend refracted tile color with caustics
-    vec3 causticLight = vec3(0.8, 0.9, 1.0) * caustic * 0.6 + aberration;
-    vec3 finalColor = refractedColor + causticLight + vec3(caustic * 0.3);
+    vec3 finalColor;
+    // Above-water: standard tile with caustic tint
+    vec3 causticLightAbove = vec3(0.8, 0.9, 1.0) * caustic * 0.6 + aberration;
+    vec3 aboveColor = tileCol + causticLightAbove + vec3(caustic * 0.3);
+
+    // Underwater: dark ambient + white caustic highlight
+    vec3 underwaterAmbient = tileCol * 0.5 * depthColor * 1.2;
+    vec3 causticHighlight = tileCol * diffuse * caustic * 2.0;
+    vec3 underColor = underwaterAmbient + causticHighlight + aberration;
+
+    // Smooth blend: transition zone starts 0.3 units below water surface.
+    // smoothstep(high, low, y) → 0 at/above surface, 1 fully underwater.
+    float underwaterBlend = smoothstep(waterSurfaceY, waterSurfaceY - 0.3, vWorldPosition.y);
+    finalColor = mix(aboveColor, underColor, underwaterBlend);
 
     gl_FragColor = vec4(finalColor, 1.0);
   }
