@@ -8,4 +8,12 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #677 | 5:12 PM | 🔵 | Water caustics project exploration completed - Phase 1 bubble navigation implemented, jellyfish migration pending | ~820 |
+
+### Feb 21, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #731 | 10:33 AM | 🟣 | Light Direction Prop Added to Provider Interface | ~286 |
+| #726 | 10:19 AM | 🟣 | Enhanced Underwater Lighting Model Implemented | ~400 |
+| #724 | 10:14 AM | 🟣 | Depth Color Shader Uniforms Added | ~266 |
 </claude-mem-context>
