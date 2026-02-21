@@ -900,7 +900,7 @@ export default function Jellyfish({
 
   useFrame((_, delta) => {
     // 탭 전환 후 복귀 시 delta가 수 초짜리로 점프하는 것을 방지
-    const clampedDelta = Math.min(delta, 1 / 30);
+    const clampedDelta = Math.min(delta, 1 / 30) || 0;
     const t = (animTimeRef.current += clampedDelta);
     // 비대칭 펄스: 팽창(0→1) 느리게 75%, 수축(1→0) 빠르게 25%
     const PERIOD = 2.5;
