@@ -22,6 +22,8 @@ const BOUNDS_XZ = 3.0; // group center XZ boundary
 const BOUNDS_Y_MIN = 0.8; // group center Y minimum
 const BOUNDS_Y_MAX = 3.2; // group center Y maximum
 const REPEL = 1.2; // boundary repulsion (units/s²)
+const MAX_TURN_PER_SEC = Math.PI * 0.25; // max angular velocity (45°/sec) — prevents rapid spinning
+const MAX_SPEED = 3.0; // max swimming speed magnitude
 const SURFACE_Y = 2.0; // group Y where bell top reaches water surface (Y=5)
 
 // ─── GEOM ─────────────────────────────────────────────────────────────────────
@@ -945,35 +947,45 @@ export default function Jellyfish({
       // Wandering: 랜덤 방향 변경
       wanderTimerRef.current -= clampedDelta;
       if (wanderTimerRef.current <= 0) {
-        // 누적 방지: 새 목표 설정 전 현재값 정규화
-        wanderAngleRef.current = wanderAngleRef.current % (PI * 2);
+        // 누적 방지: 새 목표 설정 전 현재값 정규화 (음수 포함 올바른 모듈로)
+        wanderAngleRef.current =
+          ((wanderAngleRef.current % (PI * 2)) + PI * 2) % (PI * 2);
         wanderPitchRef.current = Math.max(
-          -PI * 0.45,
-          Math.min(PI * 0.45, wanderPitchRef.current),
+          -PI * 0.17,
+          Math.min(PI * 0.17, wanderPitchRef.current),
         );
 
         wanderTargetAngleRef.current =
           wanderAngleRef.current + (Math.random() - 0.5) * PI * 1.2;
         wanderTargetPitchRef.current = Math.max(
-          -PI * 0.45,
+          -PI * 0.17,
           Math.min(
-            PI * 0.45,
-            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7,
+            PI * 0.17,
+            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.2,
           ),
         );
         wanderTimerRef.current =
           WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
       }
 
-      // 현재 방향을 목표 방향으로 부드럽게 보간
-      wanderAngleRef.current +=
-        (wanderTargetAngleRef.current - wanderAngleRef.current) *
-        TURN_SPEED *
-        clampedDelta;
-      wanderPitchRef.current +=
+      // 현재 방향을 목표 방향으로 부드럽게 보간 (최단 경로 + 각속도 상한)
+      const rawAngleDiff =
+        wanderTargetAngleRef.current - wanderAngleRef.current;
+      const shortAngleDiff =
+        rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
+      const maxTurnDelta = MAX_TURN_PER_SEC * clampedDelta;
+      wanderAngleRef.current += Math.max(
+        -maxTurnDelta,
+        Math.min(maxTurnDelta, shortAngleDiff * TURN_SPEED * clampedDelta),
+      );
+      const pitchDelta =
         (wanderTargetPitchRef.current - wanderPitchRef.current) *
         TURN_SPEED *
         clampedDelta;
+      wanderPitchRef.current += Math.max(
+        -maxTurnDelta,
+        Math.min(maxTurnDelta, pitchDelta),
+      );
 
       const a = wanderAngleRef.current,
         p = wanderPitchRef.current;
@@ -995,6 +1007,11 @@ export default function Jellyfish({
     if (pos.z < -BOUNDS_XZ) vel.z += REPEL * clampedDelta;
     if (pos.y < BOUNDS_Y_MIN) vel.y += REPEL * clampedDelta;
     if (pos.y > BOUNDS_Y_MAX) vel.y -= REPEL * clampedDelta;
+
+    // // 속도 크기 제한: 최대 속도 초과 시 초기화
+    if (vel.lengthSq() > MAX_SPEED * MAX_SPEED) {
+      vel.set(0, 0, 0);
+    }
 
     // 위치 업데이트 + 하드 클램프
     pos.addScaledVector(vel, clampedDelta);
