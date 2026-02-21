@@ -137,8 +137,8 @@ function buildJellyfish() {
   const tailArmSegments = 30,
     tailArmSegmentLength = 1;
   const tailArmWeight = 0.5;
-  const tentacleSegments = 67,
-    tentacleSegmentLength = 1.5;
+  const tentacleSegments = 40,
+    tentacleSegmentLength = 0.7;
   const posTop = yOffset + size;
   const posMid = yOffset;
   const posBottom = yOffset - size;
@@ -558,7 +558,7 @@ function createTentacleSegment(s, groupIndex, index, total, rib) {
     verts,
   );
   for (let i = 0; i < totalSegments; i++) uvs.push(0, 0);
-  const weight = (index / total) ** 3 * tentacleWeightFactor;
+  const weight = Math.sqrt(index / total) * tentacleWeightFactor;
   for (let i = start; i < start + totalSegments; i++) weights[i] = weight;
   if (index === 0) s.tentacles.push([]);
   s.tentacles[groupIndex].push({ start });
@@ -792,9 +792,7 @@ export default function Jellyfish({
   const wanderTargetAngleRef = useRef(
     initialAngle + (Math.random() - 0.5) * 1.2,
   );
-  const wanderTargetPitchRef = useRef(
-    _initPitch + (Math.random() - 0.5) * 0.8,
-  );
+  const wanderTargetPitchRef = useRef(_initPitch + (Math.random() - 0.5) * 0.8);
   const wanderTimerRef = useRef(2 + Math.random() * 3);
 
   // Bell top faces this direction (model +Y → swimDir)
@@ -832,6 +830,7 @@ export default function Jellyfish({
     mouthFaces,
     uvs,
     totalSegments,
+    tentacles,
   } = useMemo(() => buildJellyfish(), []);
 
   function makeGeo(faces) {
@@ -1011,7 +1010,21 @@ export default function Jellyfish({
     gravityForce.set(0, -2 - phase * 3 - Math.max(0, vel.y) * 1.5, 0);
     updateRibs(ribs, phase, totalSegments);
     updateRibs(tailRibs, phase, totalSegments);
-    system.tick(clampedDelta);
+
+    // ── 촉수 드래그: tick을 분리해 accumulatedForces에 직접 주입 ─────
+    const tentStart = tentacles[0][0].start;
+    const tentEnd = tentacles[0][tentacles[0].length - 1].start + totalSegments;
+    system.accumulateForces(clampedDelta);
+    const af = system.accumulatedForces;
+    const DRAG = 15.0;
+    for (let i = tentStart; i < tentEnd; i++) {
+      const ix = i * 3;
+      af[ix] -= vel.x * DRAG;
+      af[ix + 1] -= vel.y * DRAG;
+      af[ix + 2] -= vel.z * DRAG;
+    }
+    system.integrate(clampedDelta);
+    system.satisfyConstraints();
 
     // ── Geometry 버퍼 갱신 ──────────────────────────────────────────
     bulbGeo.attributes.position.needsUpdate = true;
@@ -1063,7 +1076,7 @@ export default function Jellyfish({
   }, []);
 
   return (
-    <group ref={groupRef} scale={0.025}>
+    <group ref={groupRef} scale={0.02}>
       {/* Bioluminescent rim glow — hover 시 발광 강화 */}
       <mesh geometry={bulbGeo} scale={1.05}>
         <gelShaderMaterial

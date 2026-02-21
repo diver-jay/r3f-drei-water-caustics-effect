@@ -12,7 +12,7 @@ export default function Experience() {
       <OrbitControls makeDefault />
       <ambientLight intensity={0.5} />
       <spotLight
-        position={[0, 10, 0]}
+        position={[6.67, 10, -3.33]}
         intensity={2.5}
         angle={0.55}
         penumbra={0.2}
@@ -24,9 +24,10 @@ export default function Experience() {
       <WaterCausticsProvider
         position={[0, 0, 0]}
         size={10}
-        enableAutoDrops={false}
+        enableAutoDrops={true}
+        waterSurfaceY={4}
       >
-        <WaterSurface position={[0, 5, 0]} />
+        <WaterSurface position={[0, 4, 0]} />
         <CausticsPool
           position={[0, 0, 0]}
           size={10}
