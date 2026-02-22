@@ -22,8 +22,6 @@ const BOUNDS_XZ = 3.0; // group center XZ boundary
 const BOUNDS_Y_MIN = 0.8; // group center Y minimum
 const BOUNDS_Y_MAX = 3.2; // group center Y maximum
 const REPEL = 1.2; // boundary repulsion (units/s²)
-const MAX_TURN_PER_SEC = Math.PI * 0.25; // max angular velocity (45°/sec) — prevents rapid spinning
-const MAX_SPEED = 3.0; // max swimming speed magnitude
 const SURFACE_Y = 2.0; // group Y where bell top reaches water surface (Y=5)
 
 // ─── GEOM ─────────────────────────────────────────────────────────────────────
@@ -810,6 +808,8 @@ export default function Jellyfish({
 
   // Reusable objects — no allocation in useFrame
   const _targetQuatRef = useRef(new THREE.Quaternion());
+  const _invQuatRef = useRef(new THREE.Quaternion());
+  const _velModelRef = useRef(new THREE.Vector3());
   const _rightVecRef = useRef(new THREE.Vector3(1, 0, 0));
   const _forwardVecRef = useRef(new THREE.Vector3(0, 0, 1));
   const _matrixRef = useRef(new THREE.Matrix4());
@@ -827,6 +827,26 @@ export default function Jellyfish({
   const hoverLerpRef = useRef(0);
   // Hit squish: 1.0 on click, decays to 0
   const hitRef = useRef(0);
+
+  // HDR-boosted hover colors — >1.0 values trigger ToneMapping/Bloom for stronger brightness
+  const hoverColorHDR = useMemo(
+    () =>
+      new THREE.Color(
+        hoverColor.r * 2.5,
+        hoverColor.g * 2.5,
+        hoverColor.b * 2.5,
+      ),
+    [hoverColor],
+  );
+  const hoverFaintColorHDR = useMemo(
+    () =>
+      new THREE.Color(
+        hoverFaintColor.r * 4.0,
+        hoverFaintColor.g * 4.0,
+        hoverFaintColor.b * 4.0,
+      ),
+    [hoverFaintColor],
+  );
 
   const {
     system,
@@ -951,41 +971,33 @@ export default function Jellyfish({
         wanderAngleRef.current =
           ((wanderAngleRef.current % (PI * 2)) + PI * 2) % (PI * 2);
         wanderPitchRef.current = Math.max(
-          -PI * 0.17,
-          Math.min(PI * 0.17, wanderPitchRef.current),
+          -PI * 0.45,
+          Math.min(PI * 0.45, wanderPitchRef.current),
         );
 
         wanderTargetAngleRef.current =
           wanderAngleRef.current + (Math.random() - 0.5) * PI * 1.2;
         wanderTargetPitchRef.current = Math.max(
-          -PI * 0.17,
+          -PI * 0.45,
           Math.min(
-            PI * 0.17,
-            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.2,
+            PI * 0.45,
+            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7,
           ),
         );
         wanderTimerRef.current =
           WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
       }
 
-      // 현재 방향을 목표 방향으로 부드럽게 보간 (최단 경로 + 각속도 상한)
+      // 현재 방향을 목표 방향으로 부드럽게 보간 (최단 경로)
       const rawAngleDiff =
         wanderTargetAngleRef.current - wanderAngleRef.current;
       const shortAngleDiff =
         rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
-      const maxTurnDelta = MAX_TURN_PER_SEC * clampedDelta;
-      wanderAngleRef.current += Math.max(
-        -maxTurnDelta,
-        Math.min(maxTurnDelta, shortAngleDiff * TURN_SPEED * clampedDelta),
-      );
-      const pitchDelta =
+      wanderAngleRef.current += shortAngleDiff * TURN_SPEED * clampedDelta;
+      wanderPitchRef.current +=
         (wanderTargetPitchRef.current - wanderPitchRef.current) *
         TURN_SPEED *
         clampedDelta;
-      wanderPitchRef.current += Math.max(
-        -maxTurnDelta,
-        Math.min(maxTurnDelta, pitchDelta),
-      );
 
       const a = wanderAngleRef.current,
         p = wanderPitchRef.current;
@@ -1007,11 +1019,6 @@ export default function Jellyfish({
     if (pos.z < -BOUNDS_XZ) vel.z += REPEL * clampedDelta;
     if (pos.y < BOUNDS_Y_MIN) vel.y += REPEL * clampedDelta;
     if (pos.y > BOUNDS_Y_MAX) vel.y -= REPEL * clampedDelta;
-
-    // // 속도 크기 제한: 최대 속도 초과 시 초기화
-    if (vel.lengthSq() > MAX_SPEED * MAX_SPEED) {
-      vel.set(0, 0, 0);
-    }
 
     // 위치 업데이트 + 하드 클램프
     pos.addScaledVector(vel, clampedDelta);
@@ -1049,7 +1056,7 @@ export default function Jellyfish({
 
     group.quaternion.slerp(
       _targetQuatRef.current,
-      1 - Math.exp(-3 * clampedDelta),
+      1 - Math.exp(-1.5 * clampedDelta),
     );
 
     // ── 수면 도달 감지 ──────────────────────────────────────────────
@@ -1071,6 +1078,13 @@ export default function Jellyfish({
     updateRibs(tailRibs, displayPhase, totalSegments);
 
     // ── 촉수 드래그: tick을 분리해 accumulatedForces에 직접 주입 ─────
+    // world-space vel을 model-space로 변환해야 올바른 방향으로 drag가 적용됨
+    _invQuatRef.current.copy(group.quaternion).invert();
+    _velModelRef.current.copy(vel).applyQuaternion(_invQuatRef.current);
+    const vmx = _velModelRef.current.x;
+    const vmy = _velModelRef.current.y;
+    const vmz = _velModelRef.current.z;
+
     const tentStart = tentacles[0][0].start;
     const tentEnd = tentacles[0][tentacles[0].length - 1].start + totalSegments;
     system.accumulateForces(clampedDelta);
@@ -1078,12 +1092,22 @@ export default function Jellyfish({
     const DRAG = 15.0;
     for (let i = tentStart; i < tentEnd; i++) {
       const ix = i * 3;
-      af[ix] -= vel.x * DRAG;
-      af[ix + 1] -= vel.y * DRAG;
-      af[ix + 2] -= vel.z * DRAG;
+      af[ix] -= vmx * DRAG;
+      af[ix + 1] -= vmy * DRAG;
+      af[ix + 2] -= vmz * DRAG;
     }
     system.integrate(clampedDelta);
     system.satisfyConstraints();
+
+    // ── Verlet velocity damping ──────────────────────────────────────
+    {
+      const keepFraction = Math.pow(0.82, clampedDelta);
+      const p = system.positions;
+      const pp = system.positionsPrev;
+      for (let i = 0, n = p.length; i < n; i++) {
+        pp[i] += (p[i] - pp[i]) * (1 - keepFraction);
+      }
+    }
 
     // ── Geometry 버퍼 갱신 ──────────────────────────────────────────
     bulbGeo.attributes.position.needsUpdate = true;
@@ -1108,7 +1132,7 @@ export default function Jellyfish({
     if (faintMatRef.current) {
       faintMatRef.current.stepProgress = displayPhase;
       // Bioluminescence: hover 시 opacity 부드럽게 증가
-      const targetOpacity = isHoveredRef.current ? 0.4 : 0.05;
+      const targetOpacity = isHoveredRef.current ? 0.7 : 0.05;
       faintMatRef.current.opacity +=
         (targetOpacity - faintMatRef.current.opacity) * 5 * delta;
     }
@@ -1123,25 +1147,28 @@ export default function Jellyfish({
     hoverLerpRef.current += (targetLerp - hoverLerpRef.current) * 5 * delta;
     const h = hoverLerpRef.current;
     if (bulbMatRef.current) {
-      bulbMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+      bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
       bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseB, h);
+      bulbMatRef.current.opacity = 0.75 + h * 0.2;
     }
     if (tailMatRef.current) {
-      tailMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
-      tailMatRef.current.diffuseB.lerpColors(color, hoverColor, h);
+      tailMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
+      tailMatRef.current.diffuseB.lerpColors(color, hoverColorHDR, h);
+      tailMatRef.current.opacity = 0.55 + h * 0.2;
     }
     if (hoodMatRef.current) {
-      hoodMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+      hoodMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
+      hoodMatRef.current.opacity = 0.35 + h * 0.55;
     }
     if (tentMatRef.current) {
-      tentMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
+      tentMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
     }
     if (mouthMatRef.current) {
-      mouthMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColor, h);
-      mouthMatRef.current.diffuseB.lerpColors(color, hoverColor, h);
+      mouthMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
+      mouthMatRef.current.diffuseB.lerpColors(color, hoverColorHDR, h);
     }
     if (innerMatRef.current) {
-      innerMatRef.current.diffuse.lerpColors(color, hoverColor, h);
+      innerMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
     }
   });
 
