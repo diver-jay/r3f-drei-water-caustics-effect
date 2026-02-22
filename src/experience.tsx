@@ -11,6 +11,7 @@ export default function Experience() {
     <>
       <Perf position="top-left" />
       <CameraController />
+
       <ambientLight intensity={0.5} />
       <spotLight
         position={[6.67, 10, -3.33]}
