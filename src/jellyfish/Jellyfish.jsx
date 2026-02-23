@@ -771,9 +771,6 @@ export default function Jellyfish({
   color = new THREE.Color(0xff6b6b),
   diffuseB: diffuseBProp = new THREE.Color(0x7a1a1a),
   faintColor = new THREE.Color(0xff4444),
-  hoverColor = new THREE.Color(0xffb3b3),
-  hoverDiffuseB = new THREE.Color(0xc45050),
-  hoverFaintColor = new THREE.Color(0xff8888),
   initialAngle = 0,
   initialPosition = new THREE.Vector3(0, 1.5, 0),
   onSurfaceReach = () => {},
@@ -830,22 +827,21 @@ export default function Jellyfish({
 
   // HDR-boosted hover colors — >1.0 values trigger ToneMapping/Bloom for stronger brightness
   const hoverColorHDR = useMemo(
-    () =>
-      new THREE.Color(
-        hoverColor.r * 2.5,
-        hoverColor.g * 2.5,
-        hoverColor.b * 2.5,
-      ),
-    [hoverColor],
+    () => new THREE.Color(color.r * 2.5, color.g * 2.5, color.b * 2.5),
+    [color],
   );
   const hoverFaintColorHDR = useMemo(
     () =>
       new THREE.Color(
-        hoverFaintColor.r * 4.0,
-        hoverFaintColor.g * 4.0,
-        hoverFaintColor.b * 4.0,
+        faintColor.r * 4.0,
+        faintColor.g * 4.0,
+        faintColor.b * 4.0,
       ),
-    [hoverFaintColor],
+    [faintColor],
+  );
+  const hoverDiffuseBColor = useMemo(
+    () => new THREE.Color().lerpColors(diffuseBProp, new THREE.Color(1, 1, 1), 0.3),
+    [diffuseBProp],
   );
 
   const {
@@ -1148,7 +1144,7 @@ export default function Jellyfish({
     const h = hoverLerpRef.current;
     if (bulbMatRef.current) {
       bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
-      bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseB, h);
+      bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseBColor, h);
       bulbMatRef.current.opacity = 0.75 + h * 0.2;
     }
     if (tailMatRef.current) {
