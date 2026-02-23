@@ -5,9 +5,6 @@ interface JellyfishProps {
   color?: THREE.Color;
   diffuseB?: THREE.Color;
   faintColor?: THREE.Color;
-  hoverColor?: THREE.Color;
-  hoverDiffuseB?: THREE.Color;
-  hoverFaintColor?: THREE.Color;
   initialAngle?: number;
   initialPosition?: THREE.Vector3;
   onSurfaceReach?: (position: THREE.Vector3) => void;
