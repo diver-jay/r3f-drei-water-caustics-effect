@@ -16,7 +16,6 @@ import JellyfishMouth from "./parts/JellyfishMouth";
 const { sin, cos, PI } = Math;
 
 // ─── Swimming constants ────────────────────────────────────────────────────────
-const THRUST_FACTOR = 2.0;
 const GRAVITY = 0.06;
 const TURN_SPEED = 0.7;
 const WANDER_MIN = 3.5;
@@ -27,7 +26,6 @@ const BOUNDS_Y_MAX = 3.2;
 const REPEL = 1.2;
 const SURFACE_Y = 2.0;
 
-// ─── Jellyfish Component ──────────────────────────────────────────────────────
 export default function Jellyfish({
   color = new THREE.Color(0xff6b6b),
   diffuseB: diffuseBProp = new THREE.Color(0x7a1a1a),
@@ -35,6 +33,10 @@ export default function Jellyfish({
   initialAngle = 0,
   initialPosition = new THREE.Vector3(0, 1.5, 0),
   onSurfaceReach = () => {},
+  speed = 2.0,
+  size = 1.0,
+  id = "",
+  positionsMapRef = null,
 }) {
   const animTimeRef = useRef(Math.random() * 2.5);
   const groupRef = useRef();
@@ -95,7 +97,8 @@ export default function Jellyfish({
     [faintColor],
   );
   const hoverDiffuseBColor = useMemo(
-    () => new THREE.Color().lerpColors(diffuseBProp, new THREE.Color(1, 1, 1), 0.3),
+    () =>
+      new THREE.Color().lerpColors(diffuseBProp, new THREE.Color(1, 1, 1), 0.3),
     [diffuseBProp],
   );
 
@@ -164,7 +167,8 @@ export default function Jellyfish({
 
   // Bell pulse phase (asymmetric: expand slow 75%, contract fast 25%)
   function tickPulse(clampedDelta) {
-    const PERIOD = 2.5, EXPAND_RATIO = 0.75;
+    const PERIOD = 2.5,
+      EXPAND_RATIO = 0.75;
     const t = (animTimeRef.current += clampedDelta);
     const cycleT = (t % PERIOD) / PERIOD;
     let phase;
@@ -173,9 +177,7 @@ export default function Jellyfish({
     } else {
       phase =
         1 -
-        (sin(
-          ((cycleT - EXPAND_RATIO) / (1 - EXPAND_RATIO)) * PI - PI * 0.5,
-        ) +
+        (sin(((cycleT - EXPAND_RATIO) / (1 - EXPAND_RATIO)) * PI - PI * 0.5) +
           1) *
           0.5;
     }
@@ -191,7 +193,7 @@ export default function Jellyfish({
 
     const isContracting = phaseDelta < 0;
     if (isContracting) {
-      const impulse = Math.abs(phaseDelta) * THRUST_FACTOR;
+      const impulse = Math.abs(phaseDelta) * speed;
       swimVelRef.current.addScaledVector(swimDirRef.current, impulse);
     }
 
@@ -377,7 +379,11 @@ export default function Jellyfish({
     const h = hoverLerpRef.current;
     if (bulbMatRef.current) {
       bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
-      bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseBColor, h);
+      bulbMatRef.current.diffuseB.lerpColors(
+        diffuseBProp,
+        hoverDiffuseBColor,
+        h,
+      );
       bulbMatRef.current.opacity = 0.75 + h * 0.2;
     }
     if (tailMatRef.current) {
@@ -405,6 +411,7 @@ export default function Jellyfish({
     const group = groupRef.current;
     if (!group) return;
     tickGroupTransform(clampedDelta, group);
+    if (positionsMapRef && id) positionsMapRef.current.set(id, swimPosRef.current);
     tickSurface();
     tickPhysics(clampedDelta, phase, displayPhase, group);
     markGeosDirty();
@@ -428,7 +435,7 @@ export default function Jellyfish({
   }, []);
 
   return (
-    <group ref={groupRef} scale={0.02}>
+    <group ref={groupRef} scale={0.02 * size}>
       <JellyfishBell
         bulbGeo={bulbGeo}
         faintMatRef={faintMatRef}
