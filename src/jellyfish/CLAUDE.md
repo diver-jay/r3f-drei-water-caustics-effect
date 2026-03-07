@@ -16,15 +16,4 @@
 | #687 | 5:45 PM | ✅ | Jellyfish TypeScript definitions updated to match new 3D swimming props | ~237 |
 | #686 | 5:43 PM | 🔄 | Jellyfish swimming behavior upgraded to 3D directional physics with pulse-driven propulsion | ~854 |
 | #680 | 5:28 PM | 🟣 | Jellyfish component implemented with physics-based animation and bioluminescent interactions | ~908 |
-
-### Feb 21, 2026
-
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #747 | 11:58 AM | 🔴 | Fixed jellyfish wander angle accumulation preventing unrealistic rotations | ~260 |
-| #741 | 10:43 AM | ✅ | Refactored tentacle drag to inject forces directly into physics accumulator | ~346 |
-| #737 | 10:37 AM | 🟣 | Tentacle Drag Physics Implemented | ~389 |
-| #736 | " | 🔄 | Exposed Tentacles Data Structure to Component Scope | ~311 |
-| #734 | 10:35 AM | 🔴 | Changed Tentacle Weight Distribution from Cubic to Square Root | ~337 |
-| #718 | 10:04 AM | 🔵 | Root Cause of Jellyfish Tentacle Stiffening Issue Identified | ~505 |
 </claude-mem-context>
