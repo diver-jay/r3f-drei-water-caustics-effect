@@ -3,16 +3,19 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useWaterCaustics } from "../water-caustics";
 import Jellyfish from "../jellyfish/Jellyfish";
+import Particles from "./Particles";
 
-// 같은 affinity 쌍 — [id_A, id_B]
+// 같은 affinity 쌍 — [id_A, id_B, colorName]
 const AFFINITY_PAIRS = [
-  ["J1", "J2"], // Coral
-  ["J3", "J4"], // Gold
-  ["J5", "J6"], // Emerald
+  ["J1", "J2", "Coral"],
+  ["J3", "J4", "Gold"],
+  ["J5", "J6", "Emerald"],
 ] as const;
 
-const D_CONNECT = 3.0 * 0.2;  // 0.60 — 연결 형성
-const D_MAX     = 3.0 * 0.35; // 1.05 — 연결 해제 (hysteresis)
+type ColorName = "Coral" | "Gold" | "Emerald";
+
+const D_CONNECT = 3.0 * 0.55; // 1.65 — 연결 형성
+const D_MAX     = 3.0 * 0.75; // 2.25 — 연결 해제 (hysteresis)
 
 // ─── Jellyfish instances ───────────────────────────────────────────────────────
 const JELLIES = [
@@ -98,14 +101,31 @@ const JELLIES = [
   },
 ];
 
+const WHITE_JELLYFISH_IDS = ["J1", "J2", "J3", "J4", "J5", "J6"] as const;
+
 export default function SwimmingJellyfish() {
   const positionsMapRef = useRef(new Map<string, THREE.Vector3>());
   const connectedRef = useRef(new Set<string>());
 
-  useFrame(() => {
+  // 각 흰 해파리의 glow 강도 — Jellyfish 컴포넌트가 직접 읽음
+  const connectionGlowMap = useRef<Record<string, { value: number }>>(
+    Object.fromEntries(WHITE_JELLYFISH_IDS.map((id) => [id, { value: 0 }])),
+  );
+
+  // 컬러 해파리별 충전 게이지 (0~1)
+  const chargeMap = useRef<Record<ColorName, { value: number }>>({
+    Coral:   { value: 0 },
+    Gold:    { value: 0 },
+    Emerald: { value: 0 },
+  });
+  const chargeCompletedRef = useRef(new Set<ColorName>());
+
+  useFrame(({ clock }, delta) => {
     const pos = positionsMapRef.current;
     const connected = connectedRef.current;
+    const time = clock.getElapsedTime();
 
+    // 연결 감지 (hysteresis)
     for (const [idA, idB] of AFFINITY_PAIRS) {
       const pairKey = `${idA}-${idB}`;
       const a = pos.get(idA);
@@ -121,6 +141,36 @@ export default function SwimmingJellyfish() {
       } else if (isConnected && dist > D_MAX) {
         connected.delete(pairKey);
         console.log(`[해제] ${pairKey} 해제됨 (dist: ${dist.toFixed(2)})`);
+      }
+    }
+
+    // Glow 강도 업데이트 + 충전 게이지 업데이트
+    for (const [idA, idB, colorName] of AFFINITY_PAIRS) {
+      const pairKey = `${idA}-${idB}`;
+      const glowA = connectionGlowMap.current[idA];
+      const glowB = connectionGlowMap.current[idB];
+      const charge = chargeMap.current[colorName];
+
+      if (connected.has(pairKey)) {
+        // 연결 중: 반짝반짝 oscillation
+        const twinkle = Math.abs(Math.sin(time * 12.0));
+        glowA.value = twinkle;
+        glowB.value = twinkle;
+        // 충전: +0.15/초
+        charge.value = Math.min(1, charge.value + 0.15 * delta);
+      } else {
+        // 해제: 부드럽게 fade out
+        glowA.value = Math.max(0, glowA.value - delta * 3);
+        glowB.value = Math.max(0, glowB.value - delta * 3);
+        // 방전: -0.05/초
+        charge.value = Math.max(0, charge.value - 0.05 * delta);
+        chargeCompletedRef.current.delete(colorName);
+      }
+
+      // 100% 달성 (1회)
+      if (charge.value >= 1.0 && !chargeCompletedRef.current.has(colorName)) {
+        chargeCompletedRef.current.add(colorName);
+        console.log(`[충전 완료] ${colorName} 100%! — Phase 2에서 navigate()`);
       }
     }
   });
@@ -143,6 +193,8 @@ export default function SwimmingJellyfish() {
           key={jelly.name}
           id={jelly.name}
           positionsMapRef={positionsMapRef}
+          connectionGlowRef={connectionGlowMap.current[jelly.name]}
+          chargeRef={chargeMap.current[jelly.name as ColorName]}
           color={jelly.color}
           diffuseB={jelly.diffuseB}
           faintColor={jelly.faintColor}
@@ -153,6 +205,18 @@ export default function SwimmingJellyfish() {
           size={jelly.scale}
         />
       ))}
+      {AFFINITY_PAIRS.map(([, , colorName]) => {
+        const jelly = JELLIES.find((j) => j.name === colorName)!;
+        return (
+          <Particles
+            key={colorName}
+            positionsMapRef={positionsMapRef}
+            targetId={colorName}
+            chargeRef={chargeMap.current[colorName]}
+            color={jelly.color}
+          />
+        );
+      })}
     </>
   );
 }

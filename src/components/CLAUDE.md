@@ -21,4 +21,18 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #723 | 10:10 AM | 🔵 | CausticsPool Component Architecture Understood | ~358 |
+
+### Mar 8, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #865 | 2:47 PM | 🔵 | Jellyfish System Architecture Reveals Ref-Based State and Material Mutation Pipeline | ~1027 |
+| #863 | 2:45 PM | 🔵 | SwimmingJellyfish.tsx Implements Connection Detection and Twinkle System | ~635 |
+
+### Mar 9, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #879 | 12:25 AM | 🟣 | Enhanced Particle Twinkle with Irregular Beat Frequency Pattern | ~517 |
+| #878 | 12:23 AM | 🟣 | Particle System Implements Charge-Driven Staggered Visibility Around Jellyfish Bell | ~853 |
 </claude-mem-context>

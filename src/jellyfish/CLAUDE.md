@@ -16,4 +16,11 @@
 | #687 | 5:45 PM | ✅ | Jellyfish TypeScript definitions updated to match new 3D swimming props | ~237 |
 | #686 | 5:43 PM | 🔄 | Jellyfish swimming behavior upgraded to 3D directional physics with pulse-driven propulsion | ~854 |
 | #680 | 5:28 PM | 🟣 | Jellyfish component implemented with physics-based animation and bioluminescent interactions | ~908 |
+
+### Mar 8, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #871 | 7:50 PM | 🟣 | Implemented Charge-Based Color Emergence for Colored Jellyfish Bell Material | ~715 |
+| #865 | 2:47 PM | 🔵 | Jellyfish System Architecture Reveals Ref-Based State and Material Mutation Pipeline | ~1027 |
 </claude-mem-context>
