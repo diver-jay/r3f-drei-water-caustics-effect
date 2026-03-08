@@ -13,6 +13,8 @@ interface JellyfishProps {
   size?: number;
   id?: string;
   positionsMapRef?: React.MutableRefObject<Map<string, THREE.Vector3>>;
+  connectionGlowRef?: { value: number };
+  chargeRef?: { value: number };
 }
 
 declare function Jellyfish(props: JellyfishProps): JSX.Element;

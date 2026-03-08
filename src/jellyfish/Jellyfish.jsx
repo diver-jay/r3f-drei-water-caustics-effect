@@ -15,6 +15,10 @@ import JellyfishMouth from "./parts/JellyfishMouth";
 
 const { sin, cos, PI } = Math;
 
+// Charge color lerp scratch constants (shared, never mutated)
+const _WHITE = new THREE.Color(1, 1, 1);
+const _WHITE_BRIGHT = new THREE.Color(2.5, 2.5, 2.5);
+
 // ─── Swimming constants ────────────────────────────────────────────────────────
 const GRAVITY = 0.06;
 const TURN_SPEED = 0.7;
@@ -34,9 +38,11 @@ export default function Jellyfish({
   initialPosition = new THREE.Vector3(0, 1.5, 0),
   onSurfaceReach = () => {},
   speed = 2.0,
-  size = 1.0,
+  size = 0.7,
   id = "",
   positionsMapRef = null,
+  connectionGlowRef = null,
+  chargeRef = null,
 }) {
   const animTimeRef = useRef(Math.random() * 2.5);
   const groupRef = useRef();
@@ -81,6 +87,12 @@ export default function Jellyfish({
 
   const hoverLerpRef = useRef(0);
   const hitRef = useRef(0);
+
+  // Scratch colors for charge-based bell lerp (colored jellyfish only)
+  const _chargeBaseRef = useRef(new THREE.Color());
+  const _chargeHoverRef = useRef(new THREE.Color());
+  const _chargeDiffuseBRef = useRef(new THREE.Color());
+  const _chargeHoverDiffuseBRef = useRef(new THREE.Color());
 
   // HDR-boosted hover colors
   const hoverColorHDR = useMemo(
@@ -376,14 +388,24 @@ export default function Jellyfish({
 
     const targetLerp = isHoveredRef.current ? 1 : 0;
     hoverLerpRef.current += (targetLerp - hoverLerpRef.current) * 5 * delta;
-    const h = hoverLerpRef.current;
+    const h = Math.max(
+      hoverLerpRef.current,
+      connectionGlowRef ? connectionGlowRef.value : 0,
+    );
     if (bulbMatRef.current) {
-      bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
-      bulbMatRef.current.diffuseB.lerpColors(
-        diffuseBProp,
-        hoverDiffuseBColor,
-        h,
-      );
+      if (chargeRef) {
+        // Colored jellyfish: bell lerps white → full color as charge builds
+        const c = chargeRef.value;
+        _chargeBaseRef.current.lerpColors(_WHITE, color, c);
+        _chargeHoverRef.current.lerpColors(_WHITE_BRIGHT, hoverColorHDR, c);
+        _chargeDiffuseBRef.current.lerpColors(_WHITE, diffuseBProp, c);
+        _chargeHoverDiffuseBRef.current.lerpColors(_WHITE, hoverDiffuseBColor, c);
+        bulbMatRef.current.diffuse.lerpColors(_chargeBaseRef.current, _chargeHoverRef.current, h);
+        bulbMatRef.current.diffuseB.lerpColors(_chargeDiffuseBRef.current, _chargeHoverDiffuseBRef.current, h);
+      } else {
+        bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
+        bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseBColor, h);
+      }
       bulbMatRef.current.opacity = 0.75 + h * 0.2;
     }
     if (tailMatRef.current) {
@@ -411,7 +433,8 @@ export default function Jellyfish({
     const group = groupRef.current;
     if (!group) return;
     tickGroupTransform(clampedDelta, group);
-    if (positionsMapRef && id) positionsMapRef.current.set(id, swimPosRef.current);
+    if (positionsMapRef && id)
+      positionsMapRef.current.set(id, swimPosRef.current);
     tickSurface();
     tickPhysics(clampedDelta, phase, displayPhase, group);
     markGeosDirty();
@@ -425,7 +448,10 @@ export default function Jellyfish({
       .normalize();
     swimVelRef.current.addScaledVector(pushDir, 4.0);
     hitRef.current = 4.0;
-  }, []);
+    if (chargeRef) {
+      chargeRef.value = Math.min(1, chargeRef.value + 0.1);
+    }
+  }, [chargeRef]);
 
   const handlePointerEnter = useCallback(() => {
     isHoveredRef.current = true;
