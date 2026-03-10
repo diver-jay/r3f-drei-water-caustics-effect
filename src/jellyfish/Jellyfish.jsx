@@ -177,10 +177,10 @@ export default function Jellyfish({
     [system, tentLinks],
   );
 
-  const tickPulse = (clampedDelta) => {
+  const tickPulse = (dt) => {
     const PERIOD = 2.5,
       EXPAND_RATIO = 0.75;
-    const t = (animTime.current += clampedDelta);
+    const t = (animTime.current += dt);
     const cycleT = (t % PERIOD) / PERIOD;
     let phase;
     if (cycleT < EXPAND_RATIO) {
@@ -192,15 +192,15 @@ export default function Jellyfish({
           1) *
           0.5;
     }
-    hit.current *= Math.pow(0.003, clampedDelta);
+    hit.current *= Math.pow(0.003, dt);
     const displayPhase = Math.max(0, phase - hit.current);
     return { t, phase, displayPhase };
   };
 
-  const tickWander = (clampedDelta) => {
-    swimVelocity.current.y -= GRAVITY * clampedDelta;
+  const tickWander = (dt) => {
+    swimVelocity.current.y -= GRAVITY * dt;
 
-    wanderTimer.current -= clampedDelta;
+    wanderTimer.current -= dt;
     if (wanderTimer.current <= 0) {
       wanderAngle.current =
         ((wanderAngle.current % (PI * 2)) + PI * 2) % (PI * 2);
@@ -224,11 +224,11 @@ export default function Jellyfish({
     const rawAngleDiff = wanderTargetAngle.current - wanderAngle.current;
     const shortAngleDiff =
       rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
-    wanderAngle.current += shortAngleDiff * TURN_SPEED * clampedDelta;
+    wanderAngle.current += shortAngleDiff * TURN_SPEED * dt;
     wanderPitch.current +=
       (wanderTargetPitch.current - wanderPitch.current) *
       TURN_SPEED *
-      clampedDelta;
+      dt;
 
     const a = wanderAngle.current,
       p = wanderPitch.current;
@@ -236,22 +236,22 @@ export default function Jellyfish({
     swimDirection.current.set(cp * cos(a), sin(p), cp * sin(a)).normalize();
   };
 
-  const tickBounds = (clampedDelta) => {
+  const tickBounds = (dt) => {
     const pos = swimPosition.current;
     const vel = swimVelocity.current;
-    if (pos.x > BOUNDS_XZ) vel.x -= REPEL * clampedDelta;
-    if (pos.x < -BOUNDS_XZ) vel.x += REPEL * clampedDelta;
-    if (pos.z > BOUNDS_XZ) vel.z -= REPEL * clampedDelta;
-    if (pos.z < -BOUNDS_XZ) vel.z += REPEL * clampedDelta;
-    if (pos.y < BOUNDS_Y_MIN) vel.y += REPEL * clampedDelta;
-    if (pos.y > BOUNDS_Y_MAX) vel.y -= REPEL * clampedDelta;
-    pos.addScaledVector(vel, clampedDelta);
+    if (pos.x > BOUNDS_XZ) vel.x -= REPEL * dt;
+    if (pos.x < -BOUNDS_XZ) vel.x += REPEL * dt;
+    if (pos.z > BOUNDS_XZ) vel.z -= REPEL * dt;
+    if (pos.z < -BOUNDS_XZ) vel.z += REPEL * dt;
+    if (pos.y < BOUNDS_Y_MIN) vel.y += REPEL * dt;
+    if (pos.y > BOUNDS_Y_MAX) vel.y -= REPEL * dt;
+    pos.addScaledVector(vel, dt);
     pos.x = Math.max(-BOUNDS_XZ - 0.5, Math.min(BOUNDS_XZ + 0.5, pos.x));
     pos.z = Math.max(-BOUNDS_XZ - 0.5, Math.min(BOUNDS_XZ + 0.5, pos.z));
     pos.y = Math.max(BOUNDS_Y_MIN - 0.2, Math.min(BOUNDS_Y_MAX + 0.5, pos.y));
   };
 
-  const tickSwim = (clampedDelta, phase) => {
+  const tickSwim = (dt, phase) => {
     const phaseDelta = phase - prevPhase.current;
     prevPhase.current = phase;
 
@@ -263,20 +263,20 @@ export default function Jellyfish({
       );
     }
     swimVelocity.current.multiplyScalar(
-      Math.pow(isContracting ? 0.85 : 0.4, clampedDelta),
+      Math.pow(isContracting ? 0.85 : 0.4, dt),
     );
 
     if (!isSurfacing.current) {
-      tickWander(clampedDelta);
+      tickWander(dt);
     } else {
       swimDirection.current.set(0, 1, 0);
-      swimVelocity.current.y += 3.0 * clampedDelta;
+      swimVelocity.current.y += 3.0 * dt;
     }
 
-    tickBounds(clampedDelta);
+    tickBounds(dt);
   };
 
-  const tickGroupTransform = (clampedDelta, threeGroup) => {
+  const tickGroupTransform = (dt, threeGroup) => {
     threeGroup.position.copy(swimPosition.current);
 
     const dirX = swimDirection.current.x;
@@ -290,7 +290,7 @@ export default function Jellyfish({
       .normalize();
     _matrix.makeBasis(_rightVector.current, swimDirection.current, _forwardVec);
     _targetQuat.setFromRotationMatrix(_matrix);
-    threeGroup.quaternion.slerp(_targetQuat, 1 - Math.exp(-1.5 * clampedDelta));
+    threeGroup.quaternion.slerp(_targetQuat, 1 - Math.exp(-1.5 * dt));
   };
 
   const tickSurface = () => {
@@ -307,7 +307,7 @@ export default function Jellyfish({
     }
   };
 
-  const tickPhysics = (clampedDelta, phase, displayPhase, threeGroup) => {
+  const tickPhysics = (dt, phase, displayPhase, threeGroup) => {
     gravityForce.set(
       0,
       -2 - phase * 3 - Math.max(0, swimVelocity.current.y) * 1.5,
@@ -324,7 +324,7 @@ export default function Jellyfish({
 
     const tentStart = tentacles[0][0].start;
     const tentEnd = tentacles[0][tentacles[0].length - 1].start + totalSegments;
-    system.accumulateForces(clampedDelta);
+    system.accumulateForces(dt);
     const af = system.accumulatedForces;
     const DRAG = 15.0;
     for (let i = tentStart; i < tentEnd; i++) {
@@ -333,10 +333,10 @@ export default function Jellyfish({
       af[ix + 1] -= vmy * DRAG;
       af[ix + 2] -= vmz * DRAG;
     }
-    system.integrate(clampedDelta);
+    system.integrate(dt);
     system.satisfyConstraints();
 
-    const keepFraction = Math.pow(0.82, clampedDelta);
+    const keepFraction = Math.pow(0.82, dt);
     const p = system.positions;
     const pp = system.positionsPrev;
     for (let i = 0, n = p.length; i < n; i++) {
@@ -444,14 +444,16 @@ export default function Jellyfish({
   }, []);
 
   useFrame((_, delta) => {
-    const clampedDelta = Math.min(delta, 1 / 30) || 0;
-    const { t, phase, displayPhase } = tickPulse(clampedDelta);
-    tickSwim(clampedDelta, phase);
     if (!group.current) return;
-    tickGroupTransform(clampedDelta, group.current);
-    onPositionUpdate?.(swimPosition.current);
+    const dt = Math.min(delta, 1 / 30) || 0;
+
+    const { t, phase, displayPhase } = tickPulse(dt);
+    tickSwim(dt, phase);
+    tickGroupTransform(dt, group.current);
     tickSurface();
-    tickPhysics(clampedDelta, phase, displayPhase, group.current);
+    tickPhysics(dt, phase, displayPhase, group.current);
+
+    onPositionUpdate?.(swimPosition.current);
     markGeosDirty();
     updateMaterials(displayPhase, t, delta);
   });
