@@ -15,11 +15,9 @@ import JellyfishMouth from "./parts/JellyfishMouth";
 
 const { sin, cos, PI } = Math;
 
-// Charge color lerp scratch constants (shared, never mutated)
 const _WHITE = new THREE.Color(1, 1, 1);
 const _WHITE_BRIGHT = new THREE.Color(2.5, 2.5, 2.5);
 
-// ─── Swimming constants ────────────────────────────────────────────────────────
 const GRAVITY = 0.06;
 const TURN_SPEED = 0.7;
 const WANDER_MIN = 3.5;
@@ -31,16 +29,19 @@ const REPEL = 1.2;
 const SURFACE_Y = 2.0;
 
 export default function Jellyfish({
-  color = new THREE.Color(0xff6b6b),
-  diffuseB: diffuseBProp = new THREE.Color(0x7a1a1a),
-  faintColor = new THREE.Color(0xff4444),
-  initialAngle = 0,
-  initialPosition = new THREE.Vector3(0, 1.5, 0),
-  onSurfaceReach = () => {},
+  colors: {
+    base: color = new THREE.Color(0xff6b6b),
+    dark: diffuseBProp = new THREE.Color(0x7a1a1a),
+    glow: faintColor = new THREE.Color(0xff4444),
+  } = {},
+  initial: {
+    azimuth: initialAngle = 0,
+    position: initialPosition = new THREE.Vector3(0, 1.5, 0),
+  } = {},
   speed = 2.0,
   size = 0.7,
-  id = "",
-  positionsMapRef = null,
+  onPositionUpdate = null,
+  onSurfaceReach = () => {},
   connectionGlowRef = null,
   chargeRef = null,
 }) {
@@ -50,7 +51,6 @@ export default function Jellyfish({
   const isHoveredRef = useRef(false);
   const isSurfacingRef = useRef(false);
 
-  // ── 3D swimming state ────────────────────────────────────────────────────────
   const swimPosRef = useRef(initialPosition.clone());
   const swimVelRef = useRef(new THREE.Vector3());
   const wanderAngleRef = useRef(initialAngle);
@@ -69,7 +69,6 @@ export default function Jellyfish({
     ),
   );
 
-  // Reusable scratch objects — no allocation in useFrame
   const _targetQuatRef = useRef(new THREE.Quaternion());
   const _invQuatRef = useRef(new THREE.Quaternion());
   const _velModelRef = useRef(new THREE.Vector3());
@@ -77,7 +76,6 @@ export default function Jellyfish({
   const _forwardVecRef = useRef(new THREE.Vector3(0, 0, 1));
   const _matrixRef = useRef(new THREE.Matrix4());
 
-  // Material refs
   const bulbMatRef = useRef();
   const faintMatRef = useRef();
   const tailMatRef = useRef();
@@ -88,13 +86,11 @@ export default function Jellyfish({
   const hoverLerpRef = useRef(0);
   const hitRef = useRef(0);
 
-  // Scratch colors for charge-based bell lerp (colored jellyfish only)
   const _chargeBaseRef = useRef(new THREE.Color());
   const _chargeHoverRef = useRef(new THREE.Color());
   const _chargeDiffuseBRef = useRef(new THREE.Color());
   const _chargeHoverDiffuseBRef = useRef(new THREE.Color());
 
-  // HDR-boosted hover colors
   const hoverColorHDR = useMemo(
     () => new THREE.Color(color.r * 2.5, color.g * 2.5, color.b * 2.5),
     [color],
@@ -129,7 +125,7 @@ export default function Jellyfish({
     tentacles,
   } = useMemo(() => buildJellyfish(), []);
 
-  function makeGeo(faces) {
+  const makeGeo = (faces) => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute(
       "position",
@@ -142,7 +138,7 @@ export default function Jellyfish({
     geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvs), 2));
     geo.setIndex(new THREE.BufferAttribute(new Uint32Array(faces), 1));
     return geo;
-  }
+  };
 
   const bulbGeo = useMemo(() => {
     const g = makeGeo(bulbFaces);
@@ -175,10 +171,7 @@ export default function Jellyfish({
     [system, mouthFaces, uvs],
   );
 
-  // ── useFrame sub-functions (close over refs) ──────────────────────────────
-
-  // Bell pulse phase (asymmetric: expand slow 75%, contract fast 25%)
-  function tickPulse(clampedDelta) {
+  const tickPulse = (clampedDelta) => {
     const PERIOD = 2.5,
       EXPAND_RATIO = 0.75;
     const t = (animTimeRef.current += clampedDelta);
@@ -196,10 +189,9 @@ export default function Jellyfish({
     hitRef.current *= Math.pow(0.003, clampedDelta);
     const displayPhase = Math.max(0, phase - hitRef.current);
     return { t, phase, displayPhase };
-  }
+  };
 
-  // Swimming: impulse, drag, wander, gravity, boundary repulsion, position update
-  function tickSwim(clampedDelta, phase) {
+  const tickSwim = (clampedDelta, phase) => {
     const phaseDelta = phase - prevPhaseRef.current;
     prevPhaseRef.current = phase;
 
@@ -215,7 +207,6 @@ export default function Jellyfish({
     if (!isSurfacingRef.current) {
       swimVelRef.current.y -= GRAVITY * clampedDelta;
 
-      // Wander: pick new target direction periodically
       wanderTimerRef.current -= clampedDelta;
       if (wanderTimerRef.current <= 0) {
         wanderAngleRef.current =
@@ -237,7 +228,6 @@ export default function Jellyfish({
           WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
       }
 
-      // Steer toward target (shortest-path angle interpolation)
       const rawAngleDiff =
         wanderTargetAngleRef.current - wanderAngleRef.current;
       const shortAngleDiff =
@@ -257,7 +247,6 @@ export default function Jellyfish({
       swimVelRef.current.y += 3.0 * clampedDelta;
     }
 
-    // Boundary repulsion + position update
     const pos = swimPosRef.current;
     const vel = swimVelRef.current;
     if (pos.x > BOUNDS_XZ) vel.x -= REPEL * clampedDelta;
@@ -270,10 +259,9 @@ export default function Jellyfish({
     pos.x = Math.max(-BOUNDS_XZ - 0.5, Math.min(BOUNDS_XZ + 0.5, pos.x));
     pos.z = Math.max(-BOUNDS_XZ - 0.5, Math.min(BOUNDS_XZ + 0.5, pos.z));
     pos.y = Math.max(BOUNDS_Y_MIN - 0.2, Math.min(BOUNDS_Y_MAX + 0.5, pos.y));
-  }
+  };
 
-  // Orient group to face swimDir (roll-free basis matrix)
-  function tickGroupTransform(clampedDelta, group) {
+  const tickGroupTransform = (clampedDelta, group) => {
     group.position.copy(swimPosRef.current);
 
     const dirX = swimDirRef.current.x;
@@ -295,10 +283,9 @@ export default function Jellyfish({
       _targetQuatRef.current,
       1 - Math.exp(-1.5 * clampedDelta),
     );
-  }
+  };
 
-  // Detect surface arrival and reset back to swimming
-  function tickSurface() {
+  const tickSurface = () => {
     const pos = swimPosRef.current;
     const vel = swimVelRef.current;
     if (isSurfacingRef.current && pos.y >= SURFACE_Y) {
@@ -310,10 +297,9 @@ export default function Jellyfish({
       wanderPitchRef.current = 0;
       swimDirRef.current.set(cos(initialAngle), 0, sin(initialAngle));
     }
-  }
+  };
 
-  // Particulate physics step (gravity, ribs, tentacle drag, integrate, verlet damping)
-  function tickPhysics(clampedDelta, phase, displayPhase, group) {
+  const tickPhysics = (clampedDelta, phase, displayPhase, group) => {
     gravityForce.set(
       0,
       -2 - phase * 3 - Math.max(0, swimVelRef.current.y) * 1.5,
@@ -322,7 +308,6 @@ export default function Jellyfish({
     updateRibs(ribs, displayPhase, totalSegments);
     updateRibs(tailRibs, displayPhase, totalSegments);
 
-    // Tentacle drag: inject world-space velocity as model-space force
     _invQuatRef.current.copy(group.quaternion).invert();
     _velModelRef.current
       .copy(swimVelRef.current)
@@ -345,17 +330,15 @@ export default function Jellyfish({
     system.integrate(clampedDelta);
     system.satisfyConstraints();
 
-    // Verlet velocity damping
     const keepFraction = Math.pow(0.82, clampedDelta);
     const p = system.positions;
     const pp = system.positionsPrev;
     for (let i = 0, n = p.length; i < n; i++) {
       pp[i] += (p[i] - pp[i]) * (1 - keepFraction);
     }
-  }
+  };
 
-  // Flag geometry buffers dirty for GPU upload
-  function markGeosDirty() {
+  const markGeosDirty = () => {
     bulbGeo.attributes.position.needsUpdate = true;
     bulbGeo.attributes.positionPrev.needsUpdate = true;
     bulbGeo.computeVertexNormals();
@@ -367,10 +350,9 @@ export default function Jellyfish({
     tentGeo.attributes.positionPrev.needsUpdate = true;
     mouthGeo.attributes.position.needsUpdate = true;
     mouthGeo.attributes.positionPrev.needsUpdate = true;
-  }
+  };
 
-  // Update shader uniforms: stepProgress, hover color lerp, bioluminescence opacity
-  function updateMaterials(displayPhase, t, delta) {
+  const updateMaterials = (displayPhase, t, delta) => {
     if (bulbMatRef.current) {
       bulbMatRef.current.stepProgress = displayPhase;
       bulbMatRef.current.time = t;
@@ -394,7 +376,6 @@ export default function Jellyfish({
     );
     if (bulbMatRef.current) {
       if (chargeRef) {
-        // Colored jellyfish: bell lerps white → full color as charge builds
         const c = chargeRef.value;
         _chargeBaseRef.current.lerpColors(_WHITE, color, c);
         _chargeHoverRef.current.lerpColors(_WHITE_BRIGHT, hoverColorHDR, c);
@@ -424,7 +405,30 @@ export default function Jellyfish({
       mouthMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
       mouthMatRef.current.diffuseB.lerpColors(color, hoverColorHDR, h);
     }
-  }
+  };
+
+  const handleClick = useCallback(
+    (e) => {
+      e.stopPropagation();
+      const pushDir = new THREE.Vector3()
+        .subVectors(swimPosRef.current, e.point)
+        .normalize();
+      swimVelRef.current.addScaledVector(pushDir, 4.0);
+      hitRef.current = 4.0;
+      if (chargeRef) {
+        chargeRef.value = Math.min(1, chargeRef.value + 0.1);
+      }
+    },
+    [chargeRef],
+  );
+
+  const handlePointerEnter = useCallback(() => {
+    isHoveredRef.current = true;
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    isHoveredRef.current = false;
+  }, []);
 
   useFrame((_, delta) => {
     const clampedDelta = Math.min(delta, 1 / 30) || 0;
@@ -433,32 +437,12 @@ export default function Jellyfish({
     const group = groupRef.current;
     if (!group) return;
     tickGroupTransform(clampedDelta, group);
-    if (positionsMapRef && id)
-      positionsMapRef.current.set(id, swimPosRef.current);
+    onPositionUpdate?.(swimPosRef.current);
     tickSurface();
     tickPhysics(clampedDelta, phase, displayPhase, group);
     markGeosDirty();
     updateMaterials(displayPhase, t, delta);
   });
-
-  const handleClick = useCallback((e) => {
-    e.stopPropagation();
-    const pushDir = new THREE.Vector3()
-      .subVectors(swimPosRef.current, e.point)
-      .normalize();
-    swimVelRef.current.addScaledVector(pushDir, 4.0);
-    hitRef.current = 4.0;
-    if (chargeRef) {
-      chargeRef.value = Math.min(1, chargeRef.value + 0.1);
-    }
-  }, [chargeRef]);
-
-  const handlePointerEnter = useCallback(() => {
-    isHoveredRef.current = true;
-  }, []);
-  const handlePointerLeave = useCallback(() => {
-    isHoveredRef.current = false;
-  }, []);
 
   return (
     <group ref={groupRef} scale={0.02 * size}>
