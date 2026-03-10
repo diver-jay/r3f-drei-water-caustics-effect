@@ -17,6 +17,15 @@ const { sin, cos, PI } = Math;
 
 const _WHITE = new THREE.Color(1, 1, 1);
 const _WHITE_BRIGHT = new THREE.Color(2.5, 2.5, 2.5);
+const _targetQuat = new THREE.Quaternion();
+const _invQuat = new THREE.Quaternion();
+const _velModel = new THREE.Vector3();
+const _forwardVec = new THREE.Vector3();
+const _matrix = new THREE.Matrix4();
+const _chargeBase = new THREE.Color();
+const _chargeHover = new THREE.Color();
+const _chargeDark = new THREE.Color();
+const _chargeHoverDark = new THREE.Color();
 
 const GRAVITY = 0.06;
 const TURN_SPEED = 0.7;
@@ -30,9 +39,9 @@ const SURFACE_Y = 2.0;
 
 export default function Jellyfish({
   colors: {
-    base: color = new THREE.Color(0xff6b6b),
-    dark: diffuseBProp = new THREE.Color(0x7a1a1a),
-    glow: faintColor = new THREE.Color(0xff4444),
+    base: baseColor = new THREE.Color(0xff6b6b),
+    dark: darkColor = new THREE.Color(0x7a1a1a),
+    glow: glowColor = new THREE.Color(0xff4444),
   } = {},
   initial: {
     azimuth: initialAngle = 0,
@@ -45,23 +54,39 @@ export default function Jellyfish({
   connectionGlowRef = null,
   chargeRef = null,
 }) {
-  const animTimeRef = useRef(Math.random() * 2.5);
-  const groupRef = useRef();
-  const prevPhaseRef = useRef(0);
-  const isHoveredRef = useRef(false);
-  const isSurfacingRef = useRef(false);
+  // ① Three.js object
+  const group = useRef();
 
-  const swimPosRef = useRef(initialPosition.clone());
-  const swimVelRef = useRef(new THREE.Vector3());
-  const wanderAngleRef = useRef(initialAngle);
+  // ② Materials
+  const bulbMaterial = useRef();
+  const faintMaterial = useRef();
+  const tailMaterial = useRef();
+  const hoodMaterial = useRef();
+  const tentacleMaterial = useRef();
+  const mouthMaterial = useRef();
+
+  // ③ Pulse animation
+  const animTime = useRef(Math.random() * 2.5);
+  const prevPhase = useRef(0);
+  const hit = useRef(0);
+  const hoverLerp = useRef(0);
+
+  // ④ Boolean state
+  const isHovered = useRef(false);
+  const isSurfacing = useRef(false);
+
+  // ⑤ Swimming physics
+  const swimPosition = useRef(initialPosition.clone());
+  const swimVelocity = useRef(new THREE.Vector3());
+
+  // ⑥ Wander
+  const wanderAngle = useRef(initialAngle);
   const _initPitch = (Math.random() - 0.5) * PI * 0.8;
-  const wanderPitchRef = useRef(_initPitch);
-  const wanderTargetAngleRef = useRef(
-    initialAngle + (Math.random() - 0.5) * 1.2,
-  );
-  const wanderTargetPitchRef = useRef(_initPitch + (Math.random() - 0.5) * 0.8);
-  const wanderTimerRef = useRef(2 + Math.random() * 3);
-  const swimDirRef = useRef(
+  const wanderPitch = useRef(_initPitch);
+  const wanderTargetAngle = useRef(initialAngle + (Math.random() - 0.5) * 1.2);
+  const wanderTargetPitch = useRef(_initPitch + (Math.random() - 0.5) * 0.8);
+  const wanderTimer = useRef(2 + Math.random() * 3);
+  const swimDirection = useRef(
     new THREE.Vector3(
       cos(_initPitch) * cos(initialAngle),
       sin(_initPitch),
@@ -69,45 +94,23 @@ export default function Jellyfish({
     ),
   );
 
-  const _targetQuatRef = useRef(new THREE.Quaternion());
-  const _invQuatRef = useRef(new THREE.Quaternion());
-  const _velModelRef = useRef(new THREE.Vector3());
-  const _rightVecRef = useRef(new THREE.Vector3(1, 0, 0));
-  const _forwardVecRef = useRef(new THREE.Vector3(0, 0, 1));
-  const _matrixRef = useRef(new THREE.Matrix4());
+  // ⑦ Per-instance scratch (carries stable right vector when moving vertically)
+  const _rightVector = useRef(new THREE.Vector3(1, 0, 0));
 
-  const bulbMatRef = useRef();
-  const faintMatRef = useRef();
-  const tailMatRef = useRef();
-  const hoodMatRef = useRef();
-  const tentMatRef = useRef();
-  const mouthMatRef = useRef();
-
-  const hoverLerpRef = useRef(0);
-  const hitRef = useRef(0);
-
-  const _chargeBaseRef = useRef(new THREE.Color());
-  const _chargeHoverRef = useRef(new THREE.Color());
-  const _chargeDiffuseBRef = useRef(new THREE.Color());
-  const _chargeHoverDiffuseBRef = useRef(new THREE.Color());
-
-  const hoverColorHDR = useMemo(
-    () => new THREE.Color(color.r * 2.5, color.g * 2.5, color.b * 2.5),
-    [color],
-  );
-  const hoverFaintColorHDR = useMemo(
+  const hoverBaseColor = useMemo(
     () =>
-      new THREE.Color(
-        faintColor.r * 4.0,
-        faintColor.g * 4.0,
-        faintColor.b * 4.0,
-      ),
-    [faintColor],
+      new THREE.Color(baseColor.r * 2.5, baseColor.g * 2.5, baseColor.b * 2.5),
+    [baseColor],
   );
-  const hoverDiffuseBColor = useMemo(
+  const hoverGlowColor = useMemo(
     () =>
-      new THREE.Color().lerpColors(diffuseBProp, new THREE.Color(1, 1, 1), 0.3),
-    [diffuseBProp],
+      new THREE.Color(glowColor.r * 4.0, glowColor.g * 4.0, glowColor.b * 4.0),
+    [glowColor],
+  );
+  const hoverDarkColor = useMemo(
+    () =>
+      new THREE.Color().lerpColors(darkColor, new THREE.Color(1, 1, 1), 0.3),
+    [darkColor],
   );
 
   const {
@@ -125,7 +128,7 @@ export default function Jellyfish({
     tentacles,
   } = useMemo(() => buildJellyfish(), []);
 
-  const makeGeo = (faces) => {
+  const makeMeshGeometry = (faces) => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute(
       "position",
@@ -140,41 +143,44 @@ export default function Jellyfish({
     return geo;
   };
 
-  const bulbGeo = useMemo(() => {
-    const g = makeGeo(bulbFaces);
+  const makeLineGeometry = (indices) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(system.positions, 3),
+    );
+    geo.setAttribute(
+      "positionPrev",
+      new THREE.BufferAttribute(system.positionsPrev, 3),
+    );
+    geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+    return geo;
+  };
+
+  const bulbGeometry = useMemo(() => {
+    const g = makeMeshGeometry(bulbFaces);
     g.computeVertexNormals();
     return g;
   }, [system, bulbFaces, uvs]);
-  const tailGeo = useMemo(() => makeGeo(tailFaces), [system, tailFaces, uvs]);
-  const linksGeo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(system.positions, 3));
-    g.setAttribute(
-      "positionPrev",
-      new THREE.BufferAttribute(system.positionsPrev, 3),
-    );
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(links), 1));
-    return g;
-  }, [system, links]);
-  const tentGeo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(system.positions, 3));
-    g.setAttribute(
-      "positionPrev",
-      new THREE.BufferAttribute(system.positionsPrev, 3),
-    );
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(tentLinks), 1));
-    return g;
-  }, [system, tentLinks]);
-  const mouthGeo = useMemo(
-    () => makeGeo(mouthFaces),
+  const tailGeometry = useMemo(
+    () => makeMeshGeometry(tailFaces),
+    [system, tailFaces, uvs],
+  );
+  const mouthGeometry = useMemo(
+    () => makeMeshGeometry(mouthFaces),
     [system, mouthFaces, uvs],
+  );
+
+  const linksGeometry = useMemo(() => makeLineGeometry(links), [system, links]);
+  const tentacleGeometry = useMemo(
+    () => makeLineGeometry(tentLinks),
+    [system, tentLinks],
   );
 
   const tickPulse = (clampedDelta) => {
     const PERIOD = 2.5,
       EXPAND_RATIO = 0.75;
-    const t = (animTimeRef.current += clampedDelta);
+    const t = (animTime.current += clampedDelta);
     const cycleT = (t % PERIOD) / PERIOD;
     let phase;
     if (cycleT < EXPAND_RATIO) {
@@ -186,69 +192,53 @@ export default function Jellyfish({
           1) *
           0.5;
     }
-    hitRef.current *= Math.pow(0.003, clampedDelta);
-    const displayPhase = Math.max(0, phase - hitRef.current);
+    hit.current *= Math.pow(0.003, clampedDelta);
+    const displayPhase = Math.max(0, phase - hit.current);
     return { t, phase, displayPhase };
   };
 
-  const tickSwim = (clampedDelta, phase) => {
-    const phaseDelta = phase - prevPhaseRef.current;
-    prevPhaseRef.current = phase;
+  const tickWander = (clampedDelta) => {
+    swimVelocity.current.y -= GRAVITY * clampedDelta;
 
-    const isContracting = phaseDelta < 0;
-    if (isContracting) {
-      const impulse = Math.abs(phaseDelta) * speed;
-      swimVelRef.current.addScaledVector(swimDirRef.current, impulse);
+    wanderTimer.current -= clampedDelta;
+    if (wanderTimer.current <= 0) {
+      wanderAngle.current =
+        ((wanderAngle.current % (PI * 2)) + PI * 2) % (PI * 2);
+      wanderPitch.current = Math.max(
+        -PI * 0.45,
+        Math.min(PI * 0.45, wanderPitch.current),
+      );
+      wanderTargetAngle.current =
+        wanderAngle.current + (Math.random() - 0.5) * PI * 1.2;
+      wanderTargetPitch.current = Math.max(
+        -PI * 0.45,
+        Math.min(
+          PI * 0.45,
+          wanderPitch.current + (Math.random() - 0.5) * PI * 0.7,
+        ),
+      );
+      wanderTimer.current =
+        WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
     }
 
-    const dragPerSec = isContracting ? 0.85 : 0.4;
-    swimVelRef.current.multiplyScalar(Math.pow(dragPerSec, clampedDelta));
+    const rawAngleDiff = wanderTargetAngle.current - wanderAngle.current;
+    const shortAngleDiff =
+      rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
+    wanderAngle.current += shortAngleDiff * TURN_SPEED * clampedDelta;
+    wanderPitch.current +=
+      (wanderTargetPitch.current - wanderPitch.current) *
+      TURN_SPEED *
+      clampedDelta;
 
-    if (!isSurfacingRef.current) {
-      swimVelRef.current.y -= GRAVITY * clampedDelta;
+    const a = wanderAngle.current,
+      p = wanderPitch.current;
+    const cp = cos(p);
+    swimDirection.current.set(cp * cos(a), sin(p), cp * sin(a)).normalize();
+  };
 
-      wanderTimerRef.current -= clampedDelta;
-      if (wanderTimerRef.current <= 0) {
-        wanderAngleRef.current =
-          ((wanderAngleRef.current % (PI * 2)) + PI * 2) % (PI * 2);
-        wanderPitchRef.current = Math.max(
-          -PI * 0.45,
-          Math.min(PI * 0.45, wanderPitchRef.current),
-        );
-        wanderTargetAngleRef.current =
-          wanderAngleRef.current + (Math.random() - 0.5) * PI * 1.2;
-        wanderTargetPitchRef.current = Math.max(
-          -PI * 0.45,
-          Math.min(
-            PI * 0.45,
-            wanderPitchRef.current + (Math.random() - 0.5) * PI * 0.7,
-          ),
-        );
-        wanderTimerRef.current =
-          WANDER_MIN + Math.random() * (WANDER_MAX - WANDER_MIN);
-      }
-
-      const rawAngleDiff =
-        wanderTargetAngleRef.current - wanderAngleRef.current;
-      const shortAngleDiff =
-        rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
-      wanderAngleRef.current += shortAngleDiff * TURN_SPEED * clampedDelta;
-      wanderPitchRef.current +=
-        (wanderTargetPitchRef.current - wanderPitchRef.current) *
-        TURN_SPEED *
-        clampedDelta;
-
-      const a = wanderAngleRef.current,
-        p = wanderPitchRef.current;
-      const cp = cos(p);
-      swimDirRef.current.set(cp * cos(a), sin(p), cp * sin(a)).normalize();
-    } else {
-      swimDirRef.current.set(0, 1, 0);
-      swimVelRef.current.y += 3.0 * clampedDelta;
-    }
-
-    const pos = swimPosRef.current;
-    const vel = swimVelRef.current;
+  const tickBounds = (clampedDelta) => {
+    const pos = swimPosition.current;
+    const vel = swimVelocity.current;
     if (pos.x > BOUNDS_XZ) vel.x -= REPEL * clampedDelta;
     if (pos.x < -BOUNDS_XZ) vel.x += REPEL * clampedDelta;
     if (pos.z > BOUNDS_XZ) vel.z -= REPEL * clampedDelta;
@@ -261,60 +251,76 @@ export default function Jellyfish({
     pos.y = Math.max(BOUNDS_Y_MIN - 0.2, Math.min(BOUNDS_Y_MAX + 0.5, pos.y));
   };
 
-  const tickGroupTransform = (clampedDelta, group) => {
-    group.position.copy(swimPosRef.current);
+  const tickSwim = (clampedDelta, phase) => {
+    const phaseDelta = phase - prevPhase.current;
+    prevPhase.current = phase;
 
-    const dirX = swimDirRef.current.x;
-    const dirZ = swimDirRef.current.z;
+    const isContracting = phaseDelta < 0;
+    if (isContracting) {
+      swimVelocity.current.addScaledVector(
+        swimDirection.current,
+        Math.abs(phaseDelta) * speed,
+      );
+    }
+    swimVelocity.current.multiplyScalar(
+      Math.pow(isContracting ? 0.85 : 0.4, clampedDelta),
+    );
+
+    if (!isSurfacing.current) {
+      tickWander(clampedDelta);
+    } else {
+      swimDirection.current.set(0, 1, 0);
+      swimVelocity.current.y += 3.0 * clampedDelta;
+    }
+
+    tickBounds(clampedDelta);
+  };
+
+  const tickGroupTransform = (clampedDelta, threeGroup) => {
+    threeGroup.position.copy(swimPosition.current);
+
+    const dirX = swimDirection.current.x;
+    const dirZ = swimDirection.current.z;
     const len = Math.sqrt(dirX * dirX + dirZ * dirZ);
     if (len > 0.0001) {
-      _rightVecRef.current.set(dirZ / len, 0, -dirX / len);
+      _rightVector.current.set(dirZ / len, 0, -dirX / len);
     }
-    _forwardVecRef.current
-      .crossVectors(_rightVecRef.current, swimDirRef.current)
+    _forwardVec
+      .crossVectors(_rightVector.current, swimDirection.current)
       .normalize();
-    _matrixRef.current.makeBasis(
-      _rightVecRef.current,
-      swimDirRef.current,
-      _forwardVecRef.current,
-    );
-    _targetQuatRef.current.setFromRotationMatrix(_matrixRef.current);
-    group.quaternion.slerp(
-      _targetQuatRef.current,
-      1 - Math.exp(-1.5 * clampedDelta),
-    );
+    _matrix.makeBasis(_rightVector.current, swimDirection.current, _forwardVec);
+    _targetQuat.setFromRotationMatrix(_matrix);
+    threeGroup.quaternion.slerp(_targetQuat, 1 - Math.exp(-1.5 * clampedDelta));
   };
 
   const tickSurface = () => {
-    const pos = swimPosRef.current;
-    const vel = swimVelRef.current;
-    if (isSurfacingRef.current && pos.y >= SURFACE_Y) {
+    const pos = swimPosition.current;
+    const vel = swimVelocity.current;
+    if (isSurfacing.current && pos.y >= SURFACE_Y) {
       onSurfaceReach(new THREE.Vector3(pos.x, 5, pos.z));
-      isSurfacingRef.current = false;
+      isSurfacing.current = false;
       pos.set(pos.x, initialPosition.y, pos.z);
       vel.set(0, 0, 0);
-      wanderAngleRef.current = initialAngle;
-      wanderPitchRef.current = 0;
-      swimDirRef.current.set(cos(initialAngle), 0, sin(initialAngle));
+      wanderAngle.current = initialAngle;
+      wanderPitch.current = 0;
+      swimDirection.current.set(cos(initialAngle), 0, sin(initialAngle));
     }
   };
 
-  const tickPhysics = (clampedDelta, phase, displayPhase, group) => {
+  const tickPhysics = (clampedDelta, phase, displayPhase, threeGroup) => {
     gravityForce.set(
       0,
-      -2 - phase * 3 - Math.max(0, swimVelRef.current.y) * 1.5,
+      -2 - phase * 3 - Math.max(0, swimVelocity.current.y) * 1.5,
       0,
     );
     updateRibs(ribs, displayPhase, totalSegments);
     updateRibs(tailRibs, displayPhase, totalSegments);
 
-    _invQuatRef.current.copy(group.quaternion).invert();
-    _velModelRef.current
-      .copy(swimVelRef.current)
-      .applyQuaternion(_invQuatRef.current);
-    const vmx = _velModelRef.current.x;
-    const vmy = _velModelRef.current.y;
-    const vmz = _velModelRef.current.z;
+    _invQuat.copy(threeGroup.quaternion).invert();
+    _velModel.copy(swimVelocity.current).applyQuaternion(_invQuat);
+    const vmx = _velModel.x;
+    const vmy = _velModel.y;
+    const vmz = _velModel.z;
 
     const tentStart = tentacles[0][0].start;
     const tentEnd = tentacles[0][tentacles[0].length - 1].start + totalSegments;
@@ -339,71 +345,78 @@ export default function Jellyfish({
   };
 
   const markGeosDirty = () => {
-    bulbGeo.attributes.position.needsUpdate = true;
-    bulbGeo.attributes.positionPrev.needsUpdate = true;
-    bulbGeo.computeVertexNormals();
-    tailGeo.attributes.position.needsUpdate = true;
-    tailGeo.attributes.positionPrev.needsUpdate = true;
-    linksGeo.attributes.position.needsUpdate = true;
-    linksGeo.attributes.positionPrev.needsUpdate = true;
-    tentGeo.attributes.position.needsUpdate = true;
-    tentGeo.attributes.positionPrev.needsUpdate = true;
-    mouthGeo.attributes.position.needsUpdate = true;
-    mouthGeo.attributes.positionPrev.needsUpdate = true;
+    bulbGeometry.attributes.position.needsUpdate = true;
+    bulbGeometry.attributes.positionPrev.needsUpdate = true;
+    bulbGeometry.computeVertexNormals();
+    tailGeometry.attributes.position.needsUpdate = true;
+    tailGeometry.attributes.positionPrev.needsUpdate = true;
+    linksGeometry.attributes.position.needsUpdate = true;
+    linksGeometry.attributes.positionPrev.needsUpdate = true;
+    tentacleGeometry.attributes.position.needsUpdate = true;
+    tentacleGeometry.attributes.positionPrev.needsUpdate = true;
+    mouthGeometry.attributes.position.needsUpdate = true;
+    mouthGeometry.attributes.positionPrev.needsUpdate = true;
   };
 
   const updateMaterials = (displayPhase, t, delta) => {
-    if (bulbMatRef.current) {
-      bulbMatRef.current.stepProgress = displayPhase;
-      bulbMatRef.current.time = t;
+    if (bulbMaterial.current) {
+      bulbMaterial.current.stepProgress = displayPhase;
+      bulbMaterial.current.time = t;
     }
-    if (faintMatRef.current) {
-      faintMatRef.current.stepProgress = displayPhase;
-      const targetOpacity = isHoveredRef.current ? 0.7 : 0.05;
-      faintMatRef.current.opacity +=
-        (targetOpacity - faintMatRef.current.opacity) * 5 * delta;
+    if (faintMaterial.current) {
+      faintMaterial.current.stepProgress = displayPhase;
+      const targetOpacity = isHovered.current ? 0.7 : 0.05;
+      faintMaterial.current.opacity +=
+        (targetOpacity - faintMaterial.current.opacity) * 5 * delta;
     }
-    if (tailMatRef.current) tailMatRef.current.stepProgress = displayPhase;
-    if (hoodMatRef.current) hoodMatRef.current.stepProgress = displayPhase;
-    if (tentMatRef.current) tentMatRef.current.stepProgress = displayPhase;
-    if (mouthMatRef.current) mouthMatRef.current.stepProgress = displayPhase;
+    if (tailMaterial.current) tailMaterial.current.stepProgress = displayPhase;
+    if (hoodMaterial.current) hoodMaterial.current.stepProgress = displayPhase;
+    if (tentacleMaterial.current)
+      tentacleMaterial.current.stepProgress = displayPhase;
+    if (mouthMaterial.current)
+      mouthMaterial.current.stepProgress = displayPhase;
 
-    const targetLerp = isHoveredRef.current ? 1 : 0;
-    hoverLerpRef.current += (targetLerp - hoverLerpRef.current) * 5 * delta;
+    const targetLerp = isHovered.current ? 1 : 0;
+    hoverLerp.current += (targetLerp - hoverLerp.current) * 5 * delta;
     const h = Math.max(
-      hoverLerpRef.current,
+      hoverLerp.current,
       connectionGlowRef ? connectionGlowRef.value : 0,
     );
-    if (bulbMatRef.current) {
+
+    if (bulbMaterial.current) {
       if (chargeRef) {
         const c = chargeRef.value;
-        _chargeBaseRef.current.lerpColors(_WHITE, color, c);
-        _chargeHoverRef.current.lerpColors(_WHITE_BRIGHT, hoverColorHDR, c);
-        _chargeDiffuseBRef.current.lerpColors(_WHITE, diffuseBProp, c);
-        _chargeHoverDiffuseBRef.current.lerpColors(_WHITE, hoverDiffuseBColor, c);
-        bulbMatRef.current.diffuse.lerpColors(_chargeBaseRef.current, _chargeHoverRef.current, h);
-        bulbMatRef.current.diffuseB.lerpColors(_chargeDiffuseBRef.current, _chargeHoverDiffuseBRef.current, h);
+        _chargeBase.lerpColors(_WHITE, baseColor, c);
+        _chargeHover.lerpColors(_WHITE_BRIGHT, hoverBaseColor, c);
+        _chargeDark.lerpColors(_WHITE, darkColor, c);
+        _chargeHoverDark.lerpColors(_WHITE, hoverDarkColor, c);
+        bulbMaterial.current.diffuse.lerpColors(_chargeBase, _chargeHover, h);
+        bulbMaterial.current.diffuseB.lerpColors(
+          _chargeDark,
+          _chargeHoverDark,
+          h,
+        );
       } else {
-        bulbMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
-        bulbMatRef.current.diffuseB.lerpColors(diffuseBProp, hoverDiffuseBColor, h);
+        bulbMaterial.current.diffuse.lerpColors(baseColor, hoverBaseColor, h);
+        bulbMaterial.current.diffuseB.lerpColors(darkColor, hoverDarkColor, h);
       }
-      bulbMatRef.current.opacity = 0.75 + h * 0.2;
+      bulbMaterial.current.opacity = 0.75 + h * 0.2;
     }
-    if (tailMatRef.current) {
-      tailMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
-      tailMatRef.current.diffuseB.lerpColors(color, hoverColorHDR, h);
-      tailMatRef.current.opacity = 0.55 + h * 0.2;
+    if (tailMaterial.current) {
+      tailMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
+      tailMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
+      tailMaterial.current.opacity = 0.55 + h * 0.2;
     }
-    if (hoodMatRef.current) {
-      hoodMatRef.current.diffuse.lerpColors(color, hoverColorHDR, h);
-      hoodMatRef.current.opacity = 0.35 + h * 0.55;
+    if (hoodMaterial.current) {
+      hoodMaterial.current.diffuse.lerpColors(baseColor, hoverBaseColor, h);
+      hoodMaterial.current.opacity = 0.35 + h * 0.55;
     }
-    if (tentMatRef.current) {
-      tentMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
+    if (tentacleMaterial.current) {
+      tentacleMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
     }
-    if (mouthMatRef.current) {
-      mouthMatRef.current.diffuse.lerpColors(faintColor, hoverFaintColorHDR, h);
-      mouthMatRef.current.diffuseB.lerpColors(color, hoverColorHDR, h);
+    if (mouthMaterial.current) {
+      mouthMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
+      mouthMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
     }
   };
 
@@ -411,10 +424,10 @@ export default function Jellyfish({
     (e) => {
       e.stopPropagation();
       const pushDir = new THREE.Vector3()
-        .subVectors(swimPosRef.current, e.point)
+        .subVectors(swimPosition.current, e.point)
         .normalize();
-      swimVelRef.current.addScaledVector(pushDir, 4.0);
-      hitRef.current = 4.0;
+      swimVelocity.current.addScaledVector(pushDir, 4.0);
+      hit.current = 4.0;
       if (chargeRef) {
         chargeRef.value = Math.min(1, chargeRef.value + 0.1);
       }
@@ -423,58 +436,57 @@ export default function Jellyfish({
   );
 
   const handlePointerEnter = useCallback(() => {
-    isHoveredRef.current = true;
+    isHovered.current = true;
   }, []);
 
   const handlePointerLeave = useCallback(() => {
-    isHoveredRef.current = false;
+    isHovered.current = false;
   }, []);
 
   useFrame((_, delta) => {
     const clampedDelta = Math.min(delta, 1 / 30) || 0;
     const { t, phase, displayPhase } = tickPulse(clampedDelta);
     tickSwim(clampedDelta, phase);
-    const group = groupRef.current;
-    if (!group) return;
-    tickGroupTransform(clampedDelta, group);
-    onPositionUpdate?.(swimPosRef.current);
+    if (!group.current) return;
+    tickGroupTransform(clampedDelta, group.current);
+    onPositionUpdate?.(swimPosition.current);
     tickSurface();
-    tickPhysics(clampedDelta, phase, displayPhase, group);
+    tickPhysics(clampedDelta, phase, displayPhase, group.current);
     markGeosDirty();
     updateMaterials(displayPhase, t, delta);
   });
 
   return (
-    <group ref={groupRef} scale={0.02 * size}>
+    <group ref={group} scale={0.02 * size}>
       <JellyfishBell
-        bulbGeo={bulbGeo}
-        faintMatRef={faintMatRef}
-        bulbMatRef={bulbMatRef}
-        color={color}
-        diffuseB={diffuseBProp}
-        faintColor={faintColor}
+        bulbGeo={bulbGeometry}
+        faintMatRef={faintMaterial}
+        bulbMatRef={bulbMaterial}
+        color={baseColor}
+        diffuseB={darkColor}
+        faintColor={glowColor}
       />
       <JellyfishTail
-        tailGeo={tailGeo}
-        tailMatRef={tailMatRef}
-        color={color}
-        faintColor={faintColor}
+        tailGeo={tailGeometry}
+        tailMatRef={tailMaterial}
+        color={baseColor}
+        faintColor={glowColor}
       />
       <JellyfishHood
-        linksGeo={linksGeo}
-        hoodMatRef={hoodMatRef}
-        color={color}
+        linksGeo={linksGeometry}
+        hoodMatRef={hoodMaterial}
+        color={baseColor}
       />
       <JellyfishTentacles
-        tentGeo={tentGeo}
-        tentMatRef={tentMatRef}
-        faintColor={faintColor}
+        tentGeo={tentacleGeometry}
+        tentMatRef={tentacleMaterial}
+        faintColor={glowColor}
       />
       <JellyfishMouth
-        mouthGeo={mouthGeo}
-        mouthMatRef={mouthMatRef}
-        color={color}
-        faintColor={faintColor}
+        mouthGeo={mouthGeometry}
+        mouthMatRef={mouthMaterial}
+        color={baseColor}
+        faintColor={glowColor}
       />
       {/* Invisible hit sphere (bell center: physics Y=40 → local Y=2 at scale 0.05) */}
       <mesh
