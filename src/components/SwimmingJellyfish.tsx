@@ -127,8 +127,14 @@ export default function SwimmingJellyfish() {
         glowMap[whiteId].value = twinkle;
         glowMap[colorName].value = twinkle;
       } else {
-        glowMap[whiteId].value = Math.max(0, glowMap[whiteId].value - delta * 3);
-        glowMap[colorName].value = Math.max(0, glowMap[colorName].value - delta * 3);
+        glowMap[whiteId].value = Math.max(
+          0,
+          glowMap[whiteId].value - delta * 3,
+        );
+        glowMap[colorName].value = Math.max(
+          0,
+          glowMap[colorName].value - delta * 3,
+        );
       }
     }
   };
