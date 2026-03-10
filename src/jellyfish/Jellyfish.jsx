@@ -48,7 +48,7 @@ export default function Jellyfish({
     position: initialPosition = new THREE.Vector3(0, 1.5, 0),
   } = {},
   speed = 2.0,
-  size = 0.7,
+  size = 0.5,
   onPositionUpdate = null,
   onSurfaceReach = () => {},
   connectionGlowRef = null,
@@ -226,9 +226,7 @@ export default function Jellyfish({
       rawAngleDiff - Math.round(rawAngleDiff / (PI * 2)) * (PI * 2);
     wanderAngle.current += shortAngleDiff * TURN_SPEED * dt;
     wanderPitch.current +=
-      (wanderTargetPitch.current - wanderPitch.current) *
-      TURN_SPEED *
-      dt;
+      (wanderTargetPitch.current - wanderPitch.current) * TURN_SPEED * dt;
 
     const a = wanderAngle.current,
       p = wanderPitch.current;
@@ -426,7 +424,7 @@ export default function Jellyfish({
       const pushDir = new THREE.Vector3()
         .subVectors(swimPosition.current, e.point)
         .normalize();
-      swimVelocity.current.addScaledVector(pushDir, 4.0);
+      swimVelocity.current.addScaledVector(pushDir, 4.0 * (0.4 / size));
       hit.current = 4.0;
       if (chargeRef) {
         chargeRef.value = Math.min(1, chargeRef.value + 0.1);
