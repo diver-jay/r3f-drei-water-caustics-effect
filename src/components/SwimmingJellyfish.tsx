@@ -6,9 +6,9 @@ import Jellyfish from "../jellyfish/Jellyfish";
 import Particles from "./Particles";
 
 const AFFINITY_PAIRS = [
-  ["J1", "J2", "Coral"],
-  ["J3", "J4", "Gold"],
-  ["J5", "J6", "Emerald"],
+  ["J1", "Coral"],
+  ["J2", "Gold"],
+  ["J3", "Emerald"],
 ] as const;
 
 type ColorName = "Coral" | "Gold" | "Emerald";
@@ -29,15 +29,6 @@ const JELLIES = [
   {
     name: "J2",
     colors: {
-      base: new THREE.Color("#e8f2ff"),
-      dark: new THREE.Color("#b0cce8"),
-      glow: new THREE.Color("#ff6b6b"),
-    },
-    initial: { azimuth: 1.3, position: new THREE.Vector3(-1.2, 1.9, -0.8) },
-  },
-  {
-    name: "J3",
-    colors: {
       base: new THREE.Color("#c8e0f8"),
       dark: new THREE.Color("#90b8e0"),
       glow: new THREE.Color("#ffd93d"),
@@ -45,31 +36,13 @@ const JELLIES = [
     initial: { azimuth: 2.6, position: new THREE.Vector3(0.2, 1.2, 1.8) },
   },
   {
-    name: "J4",
-    colors: {
-      base: new THREE.Color("#dceeff"),
-      dark: new THREE.Color("#a8c8e8"),
-      glow: new THREE.Color("#ffd93d"),
-    },
-    initial: { azimuth: 4.0, position: new THREE.Vector3(-0.8, 2.1, 0.6) },
-  },
-  {
-    name: "J5",
+    name: "J3",
     colors: {
       base: new THREE.Color("#e4f0ff"),
       dark: new THREE.Color("#b8d4f0"),
       glow: new THREE.Color("#6bcb77"),
     },
     initial: { azimuth: 5.2, position: new THREE.Vector3(1.0, 1.6, -1.4) },
-  },
-  {
-    name: "J6",
-    colors: {
-      base: new THREE.Color("#d8eaff"),
-      dark: new THREE.Color("#a4c0e0"),
-      glow: new THREE.Color("#6bcb77"),
-    },
-    initial: { azimuth: 3.3, position: new THREE.Vector3(-1.8, 1.5, 1.2) },
   },
   {
     name: "Coral",
@@ -106,14 +79,17 @@ const JELLIES = [
   },
 ];
 
-const WHITE_JELLYFISH_IDS = ["J1", "J2", "J3", "J4", "J5", "J6"] as const;
+const WHITE_JELLYFISH_IDS = ["J1", "J2", "J3"] as const;
 
 export default function SwimmingJellyfish() {
   const positionsMapRef = useRef(new Map<string, THREE.Vector3>());
   const connectedRef = useRef(new Set<string>());
 
   const connectionGlowMap = useRef<Record<string, { value: number }>>(
-    Object.fromEntries(WHITE_JELLYFISH_IDS.map((id) => [id, { value: 0 }])),
+    Object.fromEntries([
+      ...WHITE_JELLYFISH_IDS.map((id) => [id, { value: 0 }]),
+      ...AFFINITY_PAIRS.map(([, colorName]) => [colorName, { value: 0 }]),
+    ]),
   );
 
   const chargeMap = useRef<Record<ColorName, { value: number }>>({
@@ -130,32 +106,29 @@ export default function SwimmingJellyfish() {
   const tickConnections = () => {
     const pos = positionsMapRef.current;
     const connected = connectedRef.current;
-    for (const [idA, idB] of AFFINITY_PAIRS) {
-      const pairKey = `${idA}-${idB}`;
-      const a = pos.get(idA);
-      const b = pos.get(idB);
-      if (!a || !b) continue;
-      const dist = a.distanceTo(b);
-      if (!connected.has(pairKey) && dist < D_CONNECT) connected.add(pairKey);
-      else if (connected.has(pairKey) && dist > D_MAX)
-        connected.delete(pairKey);
+    for (const [whiteId, colorName] of AFFINITY_PAIRS) {
+      const white = pos.get(whiteId);
+      const colored = pos.get(colorName);
+      if (!white || !colored) continue;
+      const key = `${whiteId}-${colorName}`;
+      const dist = white.distanceTo(colored);
+      if (!connected.has(key) && dist < D_CONNECT) connected.add(key);
+      else if (connected.has(key) && dist > D_MAX) connected.delete(key);
     }
   };
 
   const tickGlow = (time: number, delta: number) => {
     const connected = connectedRef.current;
     const glowMap = connectionGlowMap.current;
-    for (const [idA, idB] of AFFINITY_PAIRS) {
-      const pairKey = `${idA}-${idB}`;
-      const glowA = glowMap[idA];
-      const glowB = glowMap[idB];
-      if (connected.has(pairKey)) {
-        const twinkle = Math.abs(Math.sin(time * 12.0));
-        glowA.value = twinkle;
-        glowB.value = twinkle;
+    const twinkle = Math.abs(Math.sin(time * 12.0));
+    for (const [whiteId, colorName] of AFFINITY_PAIRS) {
+      const key = `${whiteId}-${colorName}`;
+      if (connected.has(key)) {
+        glowMap[whiteId].value = twinkle;
+        glowMap[colorName].value = twinkle;
       } else {
-        glowA.value = Math.max(0, glowA.value - delta * 3);
-        glowB.value = Math.max(0, glowB.value - delta * 3);
+        glowMap[whiteId].value = Math.max(0, glowMap[whiteId].value - delta * 3);
+        glowMap[colorName].value = Math.max(0, glowMap[colorName].value - delta * 3);
       }
     }
   };
@@ -164,10 +137,9 @@ export default function SwimmingJellyfish() {
     const connected = connectedRef.current;
     const charges = chargeMap.current;
     const chargeCompleted = chargeCompletedRef.current;
-    for (const [idA, idB, colorName] of AFFINITY_PAIRS) {
-      const pairKey = `${idA}-${idB}`;
+    for (const [whiteId, colorName] of AFFINITY_PAIRS) {
       const charge = charges[colorName];
-      if (connected.has(pairKey)) {
+      if (connected.has(`${whiteId}-${colorName}`)) {
         charge.value = Math.min(1, charge.value + 0.15 * delta);
       } else {
         charge.value = Math.max(0, charge.value - 0.05 * delta);
@@ -203,7 +175,7 @@ export default function SwimmingJellyfish() {
           onSurfaceReach={handleSurfaceReach}
         />
       ))}
-      {AFFINITY_PAIRS.map(([, , colorName]) => {
+      {AFFINITY_PAIRS.map(([, colorName]) => {
         const jelly = JELLIES.find((j) => j.name === colorName)!;
         return (
           <Particles
