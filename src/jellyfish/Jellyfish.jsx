@@ -99,18 +99,57 @@ export default function Jellyfish({
 
   const hoverBaseColor = useMemo(
     () =>
-      new THREE.Color(baseColor.r * 2.5, baseColor.g * 2.5, baseColor.b * 2.5),
+      new THREE.Color().lerpColors(
+        new THREE.Color(3.5, 3.5, 3.5),
+        new THREE.Color(baseColor.r * 2.0, baseColor.g * 2.0, baseColor.b * 2.0),
+        0.3,
+      ),
     [baseColor],
   );
   const hoverGlowColor = useMemo(
     () =>
-      new THREE.Color(glowColor.r * 4.0, glowColor.g * 4.0, glowColor.b * 4.0),
+      new THREE.Color().lerpColors(
+        new THREE.Color(4.0, 4.0, 4.0),
+        new THREE.Color(glowColor.r * 3.0, glowColor.g * 3.0, glowColor.b * 3.0),
+        0.35,
+      ),
     [glowColor],
   );
   const hoverDarkColor = useMemo(
     () =>
-      new THREE.Color().lerpColors(darkColor, new THREE.Color(1, 1, 1), 0.3),
-    [darkColor],
+      new THREE.Color().lerpColors(
+        new THREE.Color(2.5, 2.5, 2.5),
+        new THREE.Color(baseColor.r * 1.5, baseColor.g * 1.5, baseColor.b * 1.5),
+        0.35,
+      ),
+    [baseColor],
+  );
+  const maxBaseColor = useMemo(
+    () =>
+      new THREE.Color().lerpColors(
+        new THREE.Color(5.0, 5.0, 5.0),
+        new THREE.Color(baseColor.r * 3.0, baseColor.g * 3.0, baseColor.b * 3.0),
+        0.2,
+      ),
+    [baseColor],
+  );
+  const maxDarkColor = useMemo(
+    () =>
+      new THREE.Color().lerpColors(
+        new THREE.Color(3.5, 3.5, 3.5),
+        new THREE.Color(baseColor.r * 2.0, baseColor.g * 2.0, baseColor.b * 2.0),
+        0.3,
+      ),
+    [baseColor],
+  );
+  const maxGlowColor = useMemo(
+    () =>
+      new THREE.Color().lerpColors(
+        new THREE.Color(6.0, 6.0, 6.0),
+        new THREE.Color(glowColor.r * 4.0, glowColor.g * 4.0, glowColor.b * 4.0),
+        0.2,
+      ),
+    [glowColor],
   );
 
   const {
@@ -178,9 +217,10 @@ export default function Jellyfish({
   );
 
   const tickPulse = (dt) => {
+    const speedMult = chargeRef?.value >= 1.0 ? 1.8 : 1.0;
     const PERIOD = 2.5,
       EXPAND_RATIO = 0.75;
-    const t = (animTime.current += dt);
+    const t = (animTime.current += dt * speedMult);
     const cycleT = (t % PERIOD) / PERIOD;
     let phase;
     if (cycleT < EXPAND_RATIO) {
@@ -357,15 +397,25 @@ export default function Jellyfish({
   };
 
   const updateMaterials = (displayPhase, t, delta) => {
+    const isMax = chargeRef?.value >= 1.0;
+    // Body swell ~0.64Hz — synced with scale pulse in useFrame
+    const bodySwell = isMax ? Math.sin(t * 4.0) * 0.5 + 0.5 : 0;
+    // Edge shimmer ~1.6Hz — electric shimmer on rim/tentacles
+    const edgeShimmer = isMax ? Math.sin(t * 10.0) * 0.5 + 0.5 : 0;
+
     if (bulbMaterial.current) {
       bulbMaterial.current.stepProgress = displayPhase;
       bulbMaterial.current.time = t;
     }
     if (faintMaterial.current) {
       faintMaterial.current.stepProgress = displayPhase;
-      const targetOpacity = isHovered.current ? 0.7 : 0.05;
-      faintMaterial.current.opacity +=
-        (targetOpacity - faintMaterial.current.opacity) * 5 * delta;
+      if (isMax) {
+        faintMaterial.current.opacity = 0.2 + edgeShimmer * 0.8;
+      } else {
+        const targetOpacity = isHovered.current ? 0.7 : 0.05;
+        faintMaterial.current.opacity +=
+          (targetOpacity - faintMaterial.current.opacity) * 5 * delta;
+      }
     }
     if (tailMaterial.current) tailMaterial.current.stepProgress = displayPhase;
     if (hoodMaterial.current) hoodMaterial.current.stepProgress = displayPhase;
@@ -383,38 +433,61 @@ export default function Jellyfish({
 
     if (bulbMaterial.current) {
       if (chargeRef) {
-        const c = chargeRef.value;
-        _chargeBase.lerpColors(_WHITE, baseColor, c);
-        _chargeHover.lerpColors(_WHITE_BRIGHT, hoverBaseColor, c);
-        _chargeDark.lerpColors(_WHITE, darkColor, c);
-        _chargeHoverDark.lerpColors(_WHITE, hoverDarkColor, c);
-        bulbMaterial.current.diffuse.lerpColors(_chargeBase, _chargeHover, h);
-        bulbMaterial.current.diffuseB.lerpColors(
-          _chargeDark,
-          _chargeHoverDark,
-          h,
-        );
+        if (isMax) {
+          bulbMaterial.current.diffuse.lerpColors(hoverBaseColor, maxBaseColor, bodySwell);
+          bulbMaterial.current.diffuseB.lerpColors(hoverDarkColor, maxDarkColor, bodySwell);
+          bulbMaterial.current.opacity = 0.6 + bodySwell * 0.4;
+        } else {
+          const c = chargeRef.value;
+          _chargeBase.lerpColors(_WHITE, baseColor, c);
+          _chargeHover.lerpColors(_WHITE_BRIGHT, hoverBaseColor, c);
+          _chargeDark.lerpColors(_WHITE, darkColor, c);
+          _chargeHoverDark.lerpColors(_WHITE, hoverDarkColor, c);
+          bulbMaterial.current.diffuse.lerpColors(_chargeBase, _chargeHover, h);
+          bulbMaterial.current.diffuseB.lerpColors(_chargeDark, _chargeHoverDark, h);
+          bulbMaterial.current.opacity = 0.75 + h * 0.2;
+        }
       } else {
         bulbMaterial.current.diffuse.lerpColors(baseColor, hoverBaseColor, h);
         bulbMaterial.current.diffuseB.lerpColors(darkColor, hoverDarkColor, h);
+        bulbMaterial.current.opacity = 0.75 + h * 0.2;
       }
-      bulbMaterial.current.opacity = 0.75 + h * 0.2;
     }
     if (tailMaterial.current) {
-      tailMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
-      tailMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
-      tailMaterial.current.opacity = 0.55 + h * 0.2;
+      if (isMax) {
+        tailMaterial.current.diffuse.lerpColors(hoverGlowColor, maxGlowColor, edgeShimmer);
+        tailMaterial.current.diffuseB.copy(hoverBaseColor);
+        tailMaterial.current.opacity = 0.6 + edgeShimmer * 0.2;
+      } else {
+        tailMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
+        tailMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
+        tailMaterial.current.opacity = 0.55 + h * 0.2;
+      }
     }
     if (hoodMaterial.current) {
-      hoodMaterial.current.diffuse.lerpColors(baseColor, hoverBaseColor, h);
-      hoodMaterial.current.opacity = 0.35 + h * 0.55;
+      if (isMax) {
+        hoodMaterial.current.diffuse.lerpColors(hoverBaseColor, maxBaseColor, edgeShimmer);
+        hoodMaterial.current.opacity = 0.7 + edgeShimmer * 0.3;
+      } else {
+        hoodMaterial.current.diffuse.lerpColors(baseColor, hoverBaseColor, h);
+        hoodMaterial.current.opacity = 0.35 + h * 0.55;
+      }
     }
     if (tentacleMaterial.current) {
-      tentacleMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
+      tentacleMaterial.current.diffuse.lerpColors(
+        glowColor,
+        isMax ? maxGlowColor : hoverGlowColor,
+        isMax ? edgeShimmer : h,
+      );
     }
     if (mouthMaterial.current) {
-      mouthMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
-      mouthMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
+      if (isMax) {
+        mouthMaterial.current.diffuse.lerpColors(hoverGlowColor, maxGlowColor, edgeShimmer);
+        mouthMaterial.current.diffuseB.copy(hoverBaseColor);
+      } else {
+        mouthMaterial.current.diffuse.lerpColors(glowColor, hoverGlowColor, h);
+        mouthMaterial.current.diffuseB.lerpColors(baseColor, hoverBaseColor, h);
+      }
     }
   };
 
@@ -427,7 +500,7 @@ export default function Jellyfish({
       swimVelocity.current.addScaledVector(pushDir, 4.0 * (0.4 / size));
       hit.current = 4.0;
       if (chargeRef) {
-        chargeRef.value = Math.min(1, chargeRef.value + 0.1);
+        chargeRef.value = Math.min(1, chargeRef.value + 0.34);
       }
     },
     [chargeRef],
@@ -448,6 +521,15 @@ export default function Jellyfish({
     const { t, phase, displayPhase } = tickPulse(dt);
     tickSwim(dt, phase);
     tickGroupTransform(dt, group.current);
+
+    if (chargeRef?.value >= 1.0) {
+      // Scale pulse synced with bodySwell — jellyfish physically throbs
+      const scalePulse = Math.sin(t * 4.0) * 0.15 + 1.0; // ±15%
+      group.current.scale.setScalar(0.02 * size * scalePulse);
+    } else {
+      group.current.scale.setScalar(0.02 * size);
+    }
+
     tickSurface();
     tickPhysics(dt, phase, displayPhase, group.current);
 

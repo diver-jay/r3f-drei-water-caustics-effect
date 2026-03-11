@@ -1,5 +1,6 @@
 import { Environment } from "@react-three/drei";
 import { Perf } from "r3f-perf";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { WaterCausticsProvider } from "./water-caustics";
 import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
@@ -38,6 +39,10 @@ export default function Experience() {
         />
         <SwimmingJellyfish />
       </WaterCausticsProvider>
+
+      <EffectComposer>
+        <Bloom mipmapBlur luminanceThreshold={0.8} luminanceSmoothing={0.3} intensity={1.5} />
+      </EffectComposer>
     </>
   );
 }

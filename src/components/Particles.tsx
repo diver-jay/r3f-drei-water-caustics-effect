@@ -37,12 +37,17 @@ const vertexShader = /* glsl */ `
     float visibility = smoothstep(particleThreshold - 0.05, particleThreshold + 0.05, charge);
 
     // Irregular twinkle: product of two sines at different frequencies + phases
-    float twinkle = abs(sin(time * 3.5 + particleT))
-                  * abs(sin(time * 1.3 + particleT * 2.3));
+    float normalTwinkle = abs(sin(time * 3.5 + particleT))
+                        * abs(sin(time * 1.3 + particleT * 2.3));
+    // Max mode: faster, more electric shimmer
+    float maxTwinkle   = abs(sin(time * 7.0 + particleT))
+                       * abs(sin(time * 2.6 + particleT * 2.3));
+    float isMax = step(0.99, charge);
+    float twinkle = mix(normalTwinkle, maxTwinkle, isMax);
     vAlpha = visibility * (0.1 + 0.9 * twinkle);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-    gl_PointSize = max(2.0, 80.0 / -mvPosition.z);
+    gl_PointSize = max(2.0, (80.0 + isMax * 50.0) / -mvPosition.z);
     gl_Position  = projectionMatrix * mvPosition;
   }
 `;
