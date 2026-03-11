@@ -98,6 +98,11 @@ export default function SwimmingJellyfish() {
     Emerald: { value: 0 },
   });
   const chargeCompletedRef = useRef(new Set<ColorName>());
+  const maxHoldTimerMap = useRef<Record<ColorName, number>>({
+    Coral: 0,
+    Gold: 0,
+    Emerald: 0,
+  });
 
   const { uniforms, addDrop } = useWaterCaustics();
   const waterPosition = uniforms.waterPosition.value;
@@ -139,20 +144,31 @@ export default function SwimmingJellyfish() {
     }
   };
 
+  const MAX_HOLD_DURATION = 4.0; // seconds to hold 100% after disconnecting
+
   const tickCharge = (delta: number) => {
     const connected = connectedRef.current;
     const charges = chargeMap.current;
     const chargeCompleted = chargeCompletedRef.current;
+    const holdTimers = maxHoldTimerMap.current;
     for (const [whiteId, colorName] of AFFINITY_PAIRS) {
       const charge = charges[colorName];
-      if (connected.has(`${whiteId}-${colorName}`)) {
-        charge.value = Math.min(1, charge.value + 0.15 * delta);
-      } else {
-        charge.value = Math.max(0, charge.value - 0.05 * delta);
-        chargeCompleted.delete(colorName);
-      }
+
+      // Check max BEFORE drain — catches click-sourced 1.0 before this frame's drain runs
       if (charge.value >= 1.0 && !chargeCompleted.has(colorName)) {
         chargeCompleted.add(colorName);
+        holdTimers[colorName] = MAX_HOLD_DURATION;
+      }
+
+      if (connected.has(`${whiteId}-${colorName}`)) {
+        charge.value = Math.min(1, charge.value + 0.15 * delta);
+        holdTimers[colorName] = MAX_HOLD_DURATION;
+      } else if (chargeCompleted.has(colorName) && holdTimers[colorName] > 0) {
+        holdTimers[colorName] = Math.max(0, holdTimers[colorName] - delta);
+        // no drain during hold
+      } else {
+        charge.value = Math.max(0, charge.value - 0.02 * delta);
+        chargeCompleted.delete(colorName);
       }
     }
   };
