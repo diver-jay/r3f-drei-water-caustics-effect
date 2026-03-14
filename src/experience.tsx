@@ -1,7 +1,7 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Environment } from "@react-three/drei";
 import { Perf } from "r3f-perf";
-import { useFrame } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
 import {
   BloomEffect,
@@ -18,50 +18,14 @@ import RitualController from "./ritual/RitualController";
 import type { RitualBridge } from "./ritual/ritualTypes";
 import { WaterDropEffect } from "./effects/WaterDropEffect";
 
-const POOL_HALF = 5;   // size / 2
-const POOL_MIN_Y = 0;
-const POOL_MAX_Y = 5;  // wallHeight
-
-function PoolExitDetector({ effect }: { effect: WaterDropEffect }) {
-  const wasInside = useRef(false);
-  const phase = useRef<"idle" | "in" | "out">("idle");
-  const phaseTime = useRef(0);
-  const intensity = useRef(0);
-
-  useFrame(({ camera }, delta) => {
-    const { x, y, z } = camera.position;
-    const isInside =
-      Math.abs(x) < POOL_HALF &&
-      Math.abs(z) < POOL_HALF &&
-      y > POOL_MIN_Y &&
-      y < POOL_MAX_Y;
-
-    if (wasInside.current && !isInside) {
-      phase.current = "in";
-      phaseTime.current = 0;
-    }
-    wasInside.current = isInside;
-
-    const dt = Math.min(delta, 1 / 30);
-
-    if (phase.current === "in") {
-      phaseTime.current += dt;
-      intensity.current = Math.min(1, phaseTime.current / 0.3);
-      if (phaseTime.current >= 0.3) {
-        phase.current = "out";
-        phaseTime.current = 0;
-      }
-    } else if (phase.current === "out") {
-      phaseTime.current += dt;
-      intensity.current = Math.max(0, 1 - phaseTime.current / 2.5);
-      if (phaseTime.current >= 2.5) {
-        phase.current = "idle";
-      }
-    }
-
-    effect.uniforms.get("uIntensity")!.value = intensity.current;
-  });
-
+function CameraInjector({ effect }: { effect: WaterDropEffect }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    effect.camera = camera;
+    return () => {
+      effect.camera = null;
+    };
+  }, [camera, effect]);
   return null;
 }
 
@@ -133,7 +97,7 @@ export default function Experience({ bridge, onNavigate }: ExperienceProps) {
         <primitive object={waterDropEffect} />
       </EffectComposer>
 
-      <PoolExitDetector effect={waterDropEffect} />
+      <CameraInjector effect={waterDropEffect} />
 
       <RitualController
         bridge={bridge}

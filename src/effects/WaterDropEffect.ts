@@ -1,5 +1,8 @@
 import { Uniform } from "three";
 import { Effect } from "postprocessing";
+import type { Camera } from "three";
+
+const WATER_SURFACE_Y = 4;
 
 const fragmentShader = /* glsl */ `
 uniform float uTime;
@@ -97,6 +100,12 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 `;
 
 export class WaterDropEffect extends Effect {
+  camera: Camera | null = null;
+
+  private _phase: "idle" | "in" | "out" = "idle";
+  private _phaseTime = 0;
+  private _wasUnderwater: boolean | null = null;
+
   constructor() {
     super("WaterDropEffect", fragmentShader, {
       uniforms: new Map([
@@ -108,5 +117,44 @@ export class WaterDropEffect extends Effect {
 
   update(_renderer: unknown, _inputBuffer: unknown, deltaTime: number) {
     this.uniforms.get("uTime")!.value += deltaTime;
+
+    if (!this.camera) return;
+
+    const isUnderwater = this.camera.position.y < WATER_SURFACE_Y;
+
+    // First frame — just record state, don't trigger
+    if (this._wasUnderwater === null) {
+      this._wasUnderwater = isUnderwater;
+      return;
+    }
+
+    if (this._wasUnderwater && !isUnderwater) {
+      // Camera broke through water surface going up
+      this._phase = "in";
+      this._phaseTime = 0;
+    } else if (!this._wasUnderwater && isUnderwater) {
+      // Camera went back underwater — kill effect immediately
+      this._phase = "idle";
+      this._phaseTime = 0;
+      this.uniforms.get("uIntensity")!.value = 0;
+    }
+    this._wasUnderwater = isUnderwater;
+
+    const dt = Math.min(deltaTime, 1 / 30);
+
+    if (this._phase === "in") {
+      this._phaseTime += dt;
+      this.uniforms.get("uIntensity")!.value = Math.min(1, this._phaseTime / 0.3);
+      if (this._phaseTime >= 0.3) {
+        this._phase = "out";
+        this._phaseTime = 0;
+      }
+    } else if (this._phase === "out") {
+      this._phaseTime += dt;
+      this.uniforms.get("uIntensity")!.value = Math.max(0, 1 - this._phaseTime / 2.5);
+      if (this._phaseTime >= 2.5) {
+        this._phase = "idle";
+      }
+    }
   }
 }

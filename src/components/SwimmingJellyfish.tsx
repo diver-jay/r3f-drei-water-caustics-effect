@@ -25,7 +25,7 @@ const JELLIES = [
       dark: new THREE.Color("#a0c4ee"),
       glow: new THREE.Color("#ff6b6b"),
     },
-    initial: { azimuth: 0.0, position: new THREE.Vector3(1.5, 1.4, 0.3) },
+    initial: { azimuth: 0.0, position: new THREE.Vector3(0.0, 1.4, 5.5) }, // 북쪽 벽 근처
   },
   {
     name: "J2",
@@ -34,7 +34,7 @@ const JELLIES = [
       dark: new THREE.Color("#90b8e0"),
       glow: new THREE.Color("#ffd93d"),
     },
-    initial: { azimuth: 2.6, position: new THREE.Vector3(0.2, 1.2, 1.8) },
+    initial: { azimuth: 2.6, position: new THREE.Vector3(-5.5, 1.2, 0.5) }, // 서쪽 벽 근처
   },
   {
     name: "J3",
@@ -43,7 +43,7 @@ const JELLIES = [
       dark: new THREE.Color("#b8d4f0"),
       glow: new THREE.Color("#6bcb77"),
     },
-    initial: { azimuth: 5.2, position: new THREE.Vector3(1.0, 1.6, -1.4) },
+    initial: { azimuth: 5.2, position: new THREE.Vector3(5.0, 1.6, -3.0) }, // 동쪽 벽 근처
   },
   {
     name: "Coral",
@@ -52,7 +52,7 @@ const JELLIES = [
       dark: new THREE.Color("#7a1a1a"),
       glow: new THREE.Color("#ff4444"),
     },
-    initial: { azimuth: 0.7, position: new THREE.Vector3(1.5, 1.5, 0.5) },
+    initial: { azimuth: 0.7, position: new THREE.Vector3(4.5, 1.5, 5.0) }, // 북동쪽 벽 근처
     speed: 0.7,
     size: 1.5,
   },
@@ -63,7 +63,7 @@ const JELLIES = [
       dark: new THREE.Color("#8b6b00"),
       glow: new THREE.Color("#ffcc00"),
     },
-    initial: { azimuth: 2.1, position: new THREE.Vector3(-1.0, 1.8, -1.0) },
+    initial: { azimuth: 2.1, position: new THREE.Vector3(-5.0, 1.8, -4.0) }, // 남서쪽 벽 근처
     speed: 0.7,
     size: 1.5,
   },
@@ -74,7 +74,7 @@ const JELLIES = [
       dark: new THREE.Color("#1a5c25"),
       glow: new THREE.Color("#44bb55"),
     },
-    initial: { azimuth: 3.8, position: new THREE.Vector3(-0.5, 1.2, 1.5) },
+    initial: { azimuth: 3.8, position: new THREE.Vector3(1.0, 1.2, -5.5) }, // 남쪽 벽 근처
     speed: 0.7,
     size: 1.5,
   },
