@@ -1,18 +1,18 @@
-import { Canvas } from "@react-three/fiber";
-import Experience from "./experience";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import NowPage from "./pages/NowPage";
+import UsesPage from "./pages/UsesPage";
+import PlaygroundPage from "./pages/PlaygroundPage";
 
 export default function App() {
   return (
-    <Canvas
-      style={{ background: "#000" }}
-      camera={{
-        fov: 45,
-        near: 0.1,
-        far: 200,
-        position: [8, 12, 12],
-      }}
-    >
-      <Experience />
-    </Canvas>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/now" element={<NowPage />} />
+        <Route path="/uses" element={<UsesPage />} />
+        <Route path="/playground" element={<PlaygroundPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

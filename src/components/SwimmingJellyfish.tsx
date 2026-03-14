@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useWaterCaustics } from "../water-caustics";
 import Jellyfish from "../jellyfish/Jellyfish";
 import Particles from "./Particles";
+import type { ColorName, RitualBridge } from "../ritual/ritualTypes";
 
 const AFFINITY_PAIRS = [
   ["J1", "Coral"],
@@ -11,7 +12,7 @@ const AFFINITY_PAIRS = [
   ["J3", "Emerald"],
 ] as const;
 
-type ColorName = "Coral" | "Gold" | "Emerald";
+const COLORED_NAMES = new Set<string>(["Coral", "Gold", "Emerald"]);
 
 const D_CONNECT = 3.0 * 0.55;
 const D_MAX = 3.0 * 0.75;
@@ -81,7 +82,11 @@ const JELLIES = [
 
 const WHITE_JELLYFISH_IDS = ["J1", "J2", "J3"] as const;
 
-export default function SwimmingJellyfish() {
+interface SwimmingJellyfishProps {
+  bridge: RitualBridge;
+}
+
+export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
   const positionsMapRef = useRef(new Map<string, THREE.Vector3>());
   const connectedRef = useRef(new Set<string>());
 
@@ -173,6 +178,11 @@ export default function SwimmingJellyfish() {
     }
   };
 
+  const handleRitualStart = (colorName: string, position: THREE.Vector3) => {
+    if (bridge.trigger !== null) return;
+    bridge.trigger = { colorName: colorName as ColorName, position };
+  };
+
   const handleSurfaceReach = (pos: THREE.Vector3) => {
     const x = ((pos.x - waterPosition.x) / waterSize) * 2;
     const y = ((pos.z - waterPosition.z) / waterSize) * 2;
@@ -187,16 +197,21 @@ export default function SwimmingJellyfish() {
 
   return (
     <>
-      {JELLIES.map(({ name, ...rest }) => (
-        <Jellyfish
-          key={name}
-          {...rest}
-          onPositionUpdate={(pos) => positionsMapRef.current.set(name, pos)}
-          connectionGlowRef={connectionGlowMap.current[name]}
-          chargeRef={chargeMap.current[name as ColorName]}
-          onSurfaceReach={handleSurfaceReach}
-        />
-      ))}
+      {JELLIES.map(({ name, ...rest }) => {
+        const colored = COLORED_NAMES.has(name);
+        return (
+          <Jellyfish
+            key={name}
+            {...rest}
+            onPositionUpdate={(pos) => positionsMapRef.current.set(name, pos)}
+            connectionGlowRef={connectionGlowMap.current[name]}
+            chargeRef={chargeMap.current[name as ColorName]}
+            onSurfaceReach={handleSurfaceReach}
+            colorName={colored ? name : undefined}
+            onRitualStart={colored ? handleRitualStart : undefined}
+          />
+        );
+      })}
       {AFFINITY_PAIRS.map(([, colorName]) => {
         const jelly = JELLIES.find((j) => j.name === colorName)!;
         return (

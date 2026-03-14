@@ -53,6 +53,8 @@ export default function Jellyfish({
   onSurfaceReach = () => {},
   connectionGlowRef = null,
   chargeRef = null,
+  colorName = null,
+  onRitualStart = null,
 }) {
   // ① Three.js object
   const group = useRef();
@@ -494,6 +496,11 @@ export default function Jellyfish({
   const handleClick = useCallback(
     (e) => {
       e.stopPropagation();
+      // Fever Time click on colored jellyfish triggers the ritual
+      if (onRitualStart && chargeRef?.value >= 1.0) {
+        onRitualStart(colorName, swimPosition.current.clone());
+        return;
+      }
       const pushDir = new THREE.Vector3()
         .subVectors(swimPosition.current, e.point)
         .normalize();
@@ -503,7 +510,7 @@ export default function Jellyfish({
         chargeRef.value = Math.min(1, chargeRef.value + 0.34);
       }
     },
-    [chargeRef],
+    [chargeRef, colorName, onRitualStart, size],
   );
 
   const handlePointerEnter = useCallback(() => {
