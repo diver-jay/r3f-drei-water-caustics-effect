@@ -21,12 +21,13 @@ export default function LandingPage() {
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <Canvas
+        gl={{ preserveDrawingBuffer: true }}
         style={{ background: "#000" }}
         camera={{
           fov: 45,
           near: 0.1,
           far: 200,
-          position: [8, 12, 12],
+          position: [0, 4, 7],
         }}
       >
         <Experience bridge={bridgeRef.current} onNavigate={handleNavigate} />

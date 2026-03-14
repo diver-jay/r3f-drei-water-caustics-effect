@@ -20,6 +20,7 @@ export default function CameraController() {
       ref={controlsRef}
       makeDefault
       target={[0, 2.5, 0]}
+      maxDistance={8}
     />
   );
 }
