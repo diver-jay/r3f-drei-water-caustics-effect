@@ -15,4 +15,10 @@
 |----|------|---|-------|------|
 | #682 | 5:28 PM | ✅ | Experience scene updated to use SwimmingJellyfish instead of RisingBubbles | ~337 |
 | #677 | 5:12 PM | 🔵 | Water caustics project exploration completed - Phase 1 bubble navigation implemented, jellyfish migration pending | ~820 |
+
+### Mar 14, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #955 | 2:41 PM | 🟣 | Water drop post-processing effect integrated into scene | ~445 |
 </claude-mem-context>

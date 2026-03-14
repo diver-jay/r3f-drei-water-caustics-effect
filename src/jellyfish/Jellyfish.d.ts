@@ -17,6 +17,8 @@ interface JellyfishProps {
   onSurfaceReach?: (position: THREE.Vector3) => void;
   connectionGlowRef?: { value: number };
   chargeRef?: { value: number };
+  colorName?: string;
+  onRitualStart?: (colorName: string, position: THREE.Vector3) => void;
 }
 
 declare function Jellyfish(props: JellyfishProps): JSX.Element;
