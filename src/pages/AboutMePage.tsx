@@ -18,7 +18,7 @@ function BackButton() {
         background: "none",
         border: "none",
         cursor: "pointer",
-        color: hovered ? "#fff" : "#ffd93d",
+        color: hovered ? "#fff" : "#6bcb77",
         fontFamily: "'Bebas Neue', sans-serif",
         fontSize: "1.4rem",
         letterSpacing: "0.08em",
@@ -44,7 +44,7 @@ function BackButton() {
   );
 }
 
-export default function UsesPage() {
+export default function AboutMePage() {
   return (
     <div
       style={{
@@ -78,10 +78,10 @@ export default function UsesPage() {
               fontFamily: "'Bebas Neue', sans-serif",
               fontSize: "3.5rem",
               letterSpacing: "0.06em",
-              color: "#ffd93d",
+              color: "#6bcb77",
             }}
           >
-            USES
+            ABOUT ME
           </h1>
           <BackButton />
         </div>

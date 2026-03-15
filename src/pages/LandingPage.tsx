@@ -45,6 +45,10 @@ export default function LandingPage() {
 
   const handleNavigate = useCallback(
     (path: string) => {
+      if (path.startsWith("http")) {
+        window.open(path, "_blank", "noopener,noreferrer");
+        return;
+      }
       setWhitefadeActive(true);
       timerRef.current = setTimeout(() => navigate(path), 200);
     },
