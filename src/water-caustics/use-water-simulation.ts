@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -83,6 +83,17 @@ export function useWaterSimulation(resolution = 256, enableAutoDrops = true) {
       currentTexture: 0,
     };
   }, [resolution]);
+
+  useEffect(() => {
+    return () => {
+      simulation.textureA.dispose();
+      simulation.textureB.dispose();
+      simulation.dropMaterial.dispose();
+      simulation.updateMaterial.dispose();
+      simulation.normalMaterial.dispose();
+      simulation.mesh.geometry.dispose();
+    };
+  }, [simulation]);
 
   // Add a drop at position (x, y) in normalized coordinates (-1 to 1)
   const addDrop = useCallback(

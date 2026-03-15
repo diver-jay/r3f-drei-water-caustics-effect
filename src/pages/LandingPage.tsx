@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import Experience from "../experience";
@@ -7,13 +7,46 @@ import type { RitualBridge } from "../ritual/ritualTypes";
 
 export default function LandingPage() {
   const navigate = useNavigate();
+
   const bridgeRef = useRef<RitualBridge>({ trigger: null });
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
   const [whitefadeActive, setWhitefadeActive] = useState(false);
+
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+        console.log("[WakeLock] Acquired");
+      } catch (err) {
+        console.warn("[WakeLock] Failed:", err);
+      }
+    };
+
+    requestWakeLock();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") requestWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      wakeLockRef.current?.release();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleNavigate = useCallback(
     (path: string) => {
       setWhitefadeActive(true);
-      setTimeout(() => navigate(path), 200);
+      timerRef.current = setTimeout(() => navigate(path), 200);
     },
     [navigate],
   );
@@ -21,7 +54,6 @@ export default function LandingPage() {
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <Canvas
-        gl={{ preserveDrawingBuffer: true }}
         style={{ background: "#000" }}
         camera={{
           fov: 45,
