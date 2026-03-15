@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { Environment } from "@react-three/drei";
-import { Perf } from "r3f-perf";
 import { useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
 import {
@@ -35,43 +34,30 @@ interface ExperienceProps {
 }
 
 export default function Experience({ bridge, onNavigate }: ExperienceProps) {
-  const bloomEffect = useMemo(
-    () =>
-      new BloomEffect({
+  const effects = useMemo(
+    () => ({
+      bloom: new BloomEffect({
         mipmapBlur: true,
         luminanceThreshold: 0.8,
         luminanceSmoothing: 0.3,
         intensity: 1.5,
       }),
+      chromatic: new ChromaticAberrationEffect(),
+      hueSat: new HueSaturationEffect({ hue: 0, saturation: 0 }),
+      waterDrop: new WaterDropEffect(),
+    }),
     [],
   );
-
-  const chromaticEffect = useMemo(
-    () => new ChromaticAberrationEffect({ offset: new THREE.Vector2(0, 0) }),
-    [],
-  );
-
-  const hueSatEffect = useMemo(
-    () => new HueSaturationEffect({ hue: 0, saturation: 0 }),
-    [],
-  );
-
-  const waterDropEffect = useMemo(() => new WaterDropEffect(), []);
+  useEffect(() => {
+    return () => {
+      Object.values(effects).forEach((effect) => effect.dispose());
+    };
+  }, [effects]);
 
   return (
     <>
-      <Perf position="top-left" />
       <CameraController />
 
-      <ambientLight intensity={0.5} />
-      <spotLight
-        position={[6.67, 10, -3.33]}
-        intensity={2.5}
-        angle={0.55}
-        penumbra={0.2}
-        decay={0}
-        color="white"
-      />
       <Environment preset="sunset" />
 
       <WaterCausticsProvider
@@ -91,19 +77,19 @@ export default function Experience({ bridge, onNavigate }: ExperienceProps) {
       </WaterCausticsProvider>
 
       <EffectComposer>
-        <primitive object={bloomEffect} />
-        <primitive object={chromaticEffect} />
-        <primitive object={hueSatEffect} />
-        <primitive object={waterDropEffect} />
+        <primitive object={effects.bloom} dispose={null} />
+        <primitive object={effects.chromatic} dispose={null} />
+        <primitive object={effects.hueSat} dispose={null} />
+        <primitive object={effects.waterDrop} dispose={null} />
       </EffectComposer>
 
-      <CameraInjector effect={waterDropEffect} />
+      <CameraInjector effect={effects.waterDrop} />
 
       <RitualController
         bridge={bridge}
-        bloomEffect={bloomEffect}
-        chromaticEffect={chromaticEffect}
-        hueSatEffect={hueSatEffect}
+        bloomEffect={effects.bloom}
+        chromaticEffect={effects.chromatic}
+        hueSatEffect={effects.hueSat}
         onNavigate={onNavigate}
       />
     </>

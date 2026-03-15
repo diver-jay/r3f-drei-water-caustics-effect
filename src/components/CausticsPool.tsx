@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { useWaterCaustics } from "../water-caustics";
@@ -57,6 +57,12 @@ export default function CausticsPool({
       wallHeight,
     ],
   );
+
+  useEffect(() => {
+    return () => {
+      material.dispose();
+    };
+  }, [material]);
 
   // Position the box so its bottom sits at position.y
   const boxPosition: [number, number, number] = [

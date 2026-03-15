@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo, useEffect } from "react";
 import { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import CustomShaderMaterial from "three-custom-shader-material/vanilla";
@@ -76,6 +76,12 @@ export default function WaterSurface({
       }),
     [uniforms],
   );
+
+  useEffect(() => {
+    return () => {
+      material.dispose();
+    };
+  }, [material]);
 
   return (
     <mesh
