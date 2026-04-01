@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useWaterCaustics } from "../water-caustics";
 import Jellyfish from "../jellyfish/Jellyfish";
 import Particles from "./Particles";
-import type { ColorName, RitualBridge } from "../ritual/ritualTypes";
+type ColorName = "Coral" | "Gold" | "Emerald";
 
 const AFFINITY_PAIRS = [
   ["J1", "Coral"],
@@ -25,7 +25,7 @@ const JELLIES = [
       dark: new THREE.Color("#a0c4ee"),
       glow: new THREE.Color("#ff6b6b"),
     },
-    initial: { azimuth: 0.0, position: new THREE.Vector3(0.0, 1.4, 5.5) }, // 북쪽 벽 근처
+    initial: { azimuth: 0.0, position: new THREE.Vector3(0.0, 1.4, 5.5) },
   },
   {
     name: "J2",
@@ -34,7 +34,7 @@ const JELLIES = [
       dark: new THREE.Color("#90b8e0"),
       glow: new THREE.Color("#ffd93d"),
     },
-    initial: { azimuth: 2.6, position: new THREE.Vector3(-5.5, 1.2, 0.5) }, // 서쪽 벽 근처
+    initial: { azimuth: 2.6, position: new THREE.Vector3(-5.5, 1.2, 0.5) },
   },
   {
     name: "J3",
@@ -43,7 +43,7 @@ const JELLIES = [
       dark: new THREE.Color("#b8d4f0"),
       glow: new THREE.Color("#6bcb77"),
     },
-    initial: { azimuth: 5.2, position: new THREE.Vector3(5.0, 1.6, -3.0) }, // 동쪽 벽 근처
+    initial: { azimuth: 5.2, position: new THREE.Vector3(5.0, 1.6, -3.0) },
   },
   {
     name: "Coral",
@@ -52,7 +52,7 @@ const JELLIES = [
       dark: new THREE.Color("#7a1a1a"),
       glow: new THREE.Color("#ff4444"),
     },
-    initial: { azimuth: 0.7, position: new THREE.Vector3(4.5, 1.5, 5.0) }, // 북동쪽 벽 근처
+    initial: { azimuth: 0.7, position: new THREE.Vector3(4.5, 1.5, 5.0) },
     speed: 0.7,
     size: 1.5,
   },
@@ -63,7 +63,7 @@ const JELLIES = [
       dark: new THREE.Color("#8b6b00"),
       glow: new THREE.Color("#ffcc00"),
     },
-    initial: { azimuth: 2.1, position: new THREE.Vector3(-5.0, 1.8, -4.0) }, // 남서쪽 벽 근처
+    initial: { azimuth: 2.1, position: new THREE.Vector3(-5.0, 1.8, -4.0) },
     speed: 0.7,
     size: 1.5,
   },
@@ -74,7 +74,7 @@ const JELLIES = [
       dark: new THREE.Color("#1a5c25"),
       glow: new THREE.Color("#44bb55"),
     },
-    initial: { azimuth: 3.8, position: new THREE.Vector3(1.0, 1.2, -5.5) }, // 남쪽 벽 근처
+    initial: { azimuth: 3.8, position: new THREE.Vector3(1.0, 1.2, -5.5) },
     speed: 0.7,
     size: 1.5,
   },
@@ -82,11 +82,7 @@ const JELLIES = [
 
 const WHITE_JELLYFISH_IDS = ["J1", "J2", "J3"] as const;
 
-interface SwimmingJellyfishProps {
-  bridge: RitualBridge;
-}
-
-export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
+export default function SwimmingJellyfish() {
   const positionsMapRef = useRef(new Map<string, THREE.Vector3>());
   const connectedRef = useRef(new Set<string>());
 
@@ -137,19 +133,13 @@ export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
         glowMap[whiteId].value = twinkle;
         glowMap[colorName].value = twinkle;
       } else {
-        glowMap[whiteId].value = Math.max(
-          0,
-          glowMap[whiteId].value - delta * 3,
-        );
-        glowMap[colorName].value = Math.max(
-          0,
-          glowMap[colorName].value - delta * 3,
-        );
+        glowMap[whiteId].value = Math.max(0, glowMap[whiteId].value - delta * 3);
+        glowMap[colorName].value = Math.max(0, glowMap[colorName].value - delta * 3);
       }
     }
   };
 
-  const MAX_HOLD_DURATION = 4.0; // seconds to hold 100% after disconnecting
+  const MAX_HOLD_DURATION = 4.0;
 
   const tickCharge = (delta: number) => {
     const connected = connectedRef.current;
@@ -159,7 +149,6 @@ export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
     for (const [whiteId, colorName] of AFFINITY_PAIRS) {
       const charge = charges[colorName];
 
-      // Check max BEFORE drain — catches click-sourced 1.0 before this frame's drain runs
       if (charge.value >= 1.0 && !chargeCompleted.has(colorName)) {
         chargeCompleted.add(colorName);
         holdTimers[colorName] = MAX_HOLD_DURATION;
@@ -170,17 +159,11 @@ export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
         holdTimers[colorName] = MAX_HOLD_DURATION;
       } else if (chargeCompleted.has(colorName) && holdTimers[colorName] > 0) {
         holdTimers[colorName] = Math.max(0, holdTimers[colorName] - delta);
-        // no drain during hold
       } else {
         charge.value = Math.max(0, charge.value - 0.02 * delta);
         chargeCompleted.delete(colorName);
       }
     }
-  };
-
-  const handleRitualStart = (colorName: string, position: THREE.Vector3) => {
-    if (bridge.trigger !== null) return;
-    bridge.trigger = { colorName: colorName as ColorName, position };
   };
 
   const handleSurfaceReach = (pos: THREE.Vector3) => {
@@ -208,7 +191,6 @@ export default function SwimmingJellyfish({ bridge }: SwimmingJellyfishProps) {
             chargeRef={chargeMap.current[name as ColorName]}
             onSurfaceReach={handleSurfaceReach}
             colorName={colored ? name : undefined}
-            onRitualStart={colored ? handleRitualStart : undefined}
           />
         );
       })}

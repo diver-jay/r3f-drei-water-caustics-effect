@@ -1,10 +1,8 @@
 import { useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import Experience from "../experience";
-import type { RitualBridge } from "../ritual/ritualTypes";
 
 export default function LandingPage() {
-  const bridgeRef = useRef<RitualBridge>({ trigger: null });
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
@@ -40,7 +38,7 @@ export default function LandingPage() {
           position: [0, 4, 7],
         }}
       >
-        <Experience bridge={bridgeRef.current} />
+        <Experience />
       </Canvas>
     </div>
   );

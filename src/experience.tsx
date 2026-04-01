@@ -13,8 +13,6 @@ import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
 import SwimmingJellyfish from "./components/SwimmingJellyfish";
 import CameraController from "./components/CameraController";
-import RitualController from "./ritual/RitualController";
-import type { RitualBridge } from "./ritual/ritualTypes";
 import { WaterDropEffect } from "./effects/WaterDropEffect";
 
 function CameraInjector({ effect }: { effect: WaterDropEffect }) {
@@ -28,11 +26,7 @@ function CameraInjector({ effect }: { effect: WaterDropEffect }) {
   return null;
 }
 
-interface ExperienceProps {
-  bridge: RitualBridge;
-}
-
-export default function Experience({ bridge }: ExperienceProps) {
+export default function Experience() {
   const effects = useMemo(
     () => ({
       bloom: new BloomEffect({
@@ -72,7 +66,7 @@ export default function Experience({ bridge }: ExperienceProps) {
           wallHeight={5}
           tileRepeat={[1, 1]}
         />
-        <SwimmingJellyfish bridge={bridge} />
+        <SwimmingJellyfish />
       </WaterCausticsProvider>
 
       <EffectComposer>
@@ -83,13 +77,6 @@ export default function Experience({ bridge }: ExperienceProps) {
       </EffectComposer>
 
       <CameraInjector effect={effects.waterDrop} />
-
-      <RitualController
-        bridge={bridge}
-        bloomEffect={effects.bloom}
-        chromaticEffect={effects.chromatic}
-        hueSatEffect={effects.hueSat}
-      />
     </>
   );
 }
