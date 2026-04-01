@@ -30,10 +30,9 @@ function CameraInjector({ effect }: { effect: WaterDropEffect }) {
 
 interface ExperienceProps {
   bridge: RitualBridge;
-  onNavigate: (path: string) => void;
 }
 
-export default function Experience({ bridge, onNavigate }: ExperienceProps) {
+export default function Experience({ bridge }: ExperienceProps) {
   const effects = useMemo(
     () => ({
       bloom: new BloomEffect({
@@ -90,7 +89,6 @@ export default function Experience({ bridge, onNavigate }: ExperienceProps) {
         bloomEffect={effects.bloom}
         chromaticEffect={effects.chromatic}
         hueSatEffect={effects.hueSat}
-        onNavigate={onNavigate}
       />
     </>
   );

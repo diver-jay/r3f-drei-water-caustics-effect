@@ -4,7 +4,6 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { BloomEffect, ChromaticAberrationEffect, HueSaturationEffect } from "postprocessing";
 import type { RitualBridge, ColorName } from "./ritualTypes";
-import { COLOR_TO_ROUTE } from "./ritualTypes";
 
 const HUE_BY_COLOR: Record<ColorName, number> = {
   Coral: 0.08,
@@ -26,7 +25,6 @@ interface Props {
   bloomEffect: BloomEffect;
   chromaticEffect: ChromaticAberrationEffect;
   hueSatEffect: HueSaturationEffect;
-  onNavigate: (path: string) => void;
 }
 
 export default function RitualController({
@@ -34,22 +32,17 @@ export default function RitualController({
   bloomEffect,
   chromaticEffect,
   hueSatEffect,
-  onNavigate,
 }: Props) {
   const { camera, controls } = useThree();
 
   const isActive = useRef(false);
   const elapsed = useRef(0);
-  const navigateFired = useRef(false);
   const pendingColor = useRef<ColorName | null>(null);
 
   const startCamPos = useRef(new THREE.Vector3());
   const startTarget = useRef(new THREE.Vector3());
   const targetCamPos = useRef(new THREE.Vector3());
   const targetControlsTarget = useRef(new THREE.Vector3());
-
-  const onNavigateRef = useRef(onNavigate);
-  onNavigateRef.current = onNavigate;
 
   useFrame((_, delta) => {
     // Detect new trigger
@@ -59,7 +52,6 @@ export default function RitualController({
 
       isActive.current = true;
       elapsed.current = 0;
-      navigateFired.current = false;
       pendingColor.current = colorName;
 
       // Record starting positions
@@ -103,14 +95,6 @@ export default function RitualController({
     if (t >= 0.65 && t < 1.0) {
       const bloomT = (t - 0.65) / 0.35;
       bloomEffect.intensity = 1.5 + bloomT * 6.5;
-    }
-
-    // 1.0s: fire navigate once
-    if (t >= 1.0 && !navigateFired.current) {
-      navigateFired.current = true;
-      if (pendingColor.current) {
-        onNavigateRef.current(COLOR_TO_ROUTE[pendingColor.current]);
-      }
     }
 
     // 1.2s: cleanup (scene still alive briefly during whitefade)
