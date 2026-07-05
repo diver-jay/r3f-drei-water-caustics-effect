@@ -2,8 +2,8 @@ import { useRef, useCallback, useMemo, useEffect } from "react";
 import { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import CustomShaderMaterial from "three-custom-shader-material/vanilla";
-import { useWaterCaustics } from "../water-caustics";
-import { waterSurfaceVertexShader } from "../water-caustics/shaders";
+import { useWaterCaustics } from "@/water-caustics";
+import { waterSurfaceVertexShader } from "@/water-caustics/shaders";
 
 interface WaterSurfaceProps {
   position?: [number, number, number];
