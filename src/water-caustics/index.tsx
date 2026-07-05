@@ -54,7 +54,7 @@ interface WaterCausticsProviderProps {
   children: ReactNode;
   position?: [number, number, number];
   size?: number;
-  enableAutoDrops?: boolean;
+  enableWaterDrop?: boolean;
   chromaticAberration?: number;
   waterSurfaceY?: number;
   depthColor?: string;
@@ -66,14 +66,14 @@ export function WaterCausticsProvider({
   children,
   position = [0, 0, 0],
   size = 10,
-  enableAutoDrops = true,
+  enableWaterDrop = true,
   chromaticAberration = 0.005,
   waterSurfaceY = 5,
   depthColor = "#66e5ff",
   depthDistance = 5,
   lightDir = [0.667, 0.667, -0.333],
 }: WaterCausticsProviderProps) {
-  const { getTexture, addDrop } = useWaterSimulation(256, enableAutoDrops);
+  const { getTexture, addDrop } = useWaterSimulation(256, enableWaterDrop);
 
   // Create shared uniforms once. Consumers spread these into their materials.
   const uniforms = useRef<WaterCausticsUniforms>({

@@ -8,7 +8,7 @@ import {
   normalFragmentShader,
 } from "./shaders";
 
-export function useWaterSimulation(resolution = 256, enableAutoDrops = true) {
+export function useWaterSimulation(resolution = 256, enableWaterDrop = true) {
   const { gl } = useThree();
   const lastDropTime = useRef(0);
 
@@ -161,7 +161,7 @@ export function useWaterSimulation(resolution = 256, enableAutoDrops = true) {
     const time = state.clock.elapsedTime;
 
     // Add random drops periodically (if enabled)
-    if (enableAutoDrops && time - lastDropTime.current > 0.8) {
+    if (enableWaterDrop && time - lastDropTime.current > 0.8) {
       const x = (Math.random() - 0.5) * 1.5;
       const y = (Math.random() - 0.5) * 1.5;
       addDrop(x, y, 0.03 + Math.random() * 0.02, 0.2 + Math.random() * 0.2);
