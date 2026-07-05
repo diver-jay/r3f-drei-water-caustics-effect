@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useLoader } from "@react-three/fiber";
 import * as THREE from "three";
-import { useWaterCaustics } from "../water-caustics";
+import { useWaterCaustics } from "@/water-caustics";
 import {
   projectedCausticsVertexShader,
   projectedTileCausticsFragmentShader,
-} from "../water-caustics/shaders";
+} from "@/water-caustics/shaders";
 
 export default function CausticsTile({
   position,

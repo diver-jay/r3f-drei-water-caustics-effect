@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import * as THREE from "three";
-import { useWaterCaustics } from "../water-caustics";
+import { useWaterCaustics } from "@/water-caustics";
 import {
   projectedCausticsVertexShader,
   projectedCausticsFragmentShader,
-} from "../water-caustics/shaders";
+} from "@/water-caustics/shaders";
 
 export default function CausticsSphere({
   position,

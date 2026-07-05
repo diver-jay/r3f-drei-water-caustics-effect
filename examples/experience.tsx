@@ -6,10 +6,10 @@ import {
   ChromaticAberrationEffect,
   HueSaturationEffect,
 } from "postprocessing";
-import { WaterCausticsProvider } from "./water-caustics";
-import CausticsPool from "./components/CausticsPool";
-import WaterSurface from "./components/WaterSurface";
-import CameraController from "./components/CameraController";
+import { WaterCausticsProvider } from "@/water-caustics";
+import CausticsPool from "./components/caustics-pool";
+import WaterSurface from "./components/water-surface";
+import CameraController from "./components/camera-controller";
 
 export default function Experience() {
   const effects = useMemo(
