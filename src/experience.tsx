@@ -11,7 +11,6 @@ import * as THREE from "three";
 import { WaterCausticsProvider } from "./water-caustics";
 import CausticsPool from "./components/CausticsPool";
 import WaterSurface from "./components/WaterSurface";
-import SwimmingJellyfish from "./components/SwimmingJellyfish";
 import CameraController from "./components/CameraController";
 import { WaterDropEffect } from "./effects/WaterDropEffect";
 
@@ -66,7 +65,6 @@ export default function Experience() {
           wallHeight={5}
           tileRepeat={[1, 1]}
         />
-        <SwimmingJellyfish />
       </WaterCausticsProvider>
 
       <EffectComposer>
