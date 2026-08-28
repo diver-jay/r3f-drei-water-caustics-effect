@@ -1,6 +1,6 @@
 {
   "name": "react-three-water-caustics",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "Water caustics simulation for React Three Fiber with interactive ripples and world-space projection",
   "type": "module",
   "main": "dist/index.cjs",
