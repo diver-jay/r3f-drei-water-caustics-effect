@@ -1,12 +1,38 @@
 {
   "name": "react-three-water-caustics",
   "version": "0.1.0",
+  "description": "Water caustics simulation for React Three Fiber with interactive ripples and world-space projection",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diver-jay/react-three-water-caustics.git"
+  },
+  "homepage": "https://github.com/diver-jay/react-three-water-caustics#readme",
+  "bugs": {
+    "url": "https://github.com/diver-jay/react-three-water-caustics/issues"
+  },
+  "keywords": [
+    "react",
+    "three",
+    "threejs",
+    "react-three-fiber",
+    "r3f",
+    "water",
+    "caustics",
+    "webgl",
+    "shaders"
+  ],
+  "author": "diver-J",
+  "license": "MIT",
   "scripts": {
     "dev": "vite --config vite.examples.config.js",
     "build": "tsup",
